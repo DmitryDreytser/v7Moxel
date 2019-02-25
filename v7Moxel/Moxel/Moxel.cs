@@ -104,11 +104,11 @@ namespace Moxel
         public int GetColumnWidth(int ColNumber)
         {
             int result = 0;
-            if (DefFormat.dwFlags.HasFlag(MoxcelCellFlags.ColumnWidth))
+            if (DefFormat.dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
                 result = DefFormat.wWidth;
 
             if(Columns.ContainsKey(ColNumber))
-                if(Columns[ColNumber].dwFlags.HasFlag(MoxcelCellFlags.ColumnWidth))
+                if(Columns[ColNumber].dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
                     result = Columns[ColNumber].wWidth;
 
             if (result == 0)
@@ -129,11 +129,11 @@ namespace Moxel
         public int GetRowHeight(int RowNumber)
         {
             int result = 0;
-            if (DefFormat.dwFlags.HasFlag(MoxcelCellFlags.ColumnPagePosition))
+            if (DefFormat.dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
                 result = DefFormat.wHeight;
 
             if (Rows.ContainsKey(RowNumber))
-                if (Rows[RowNumber].FormatCell.dwFlags.HasFlag(MoxcelCellFlags.ColumnPagePosition))
+                if (Rows[RowNumber].FormatCell.dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
                     result = Rows[RowNumber].FormatCell.wHeight;
 
             if (result == 0)
@@ -178,22 +178,22 @@ namespace Moxel
 
         public void FillFormat(Cellv6 FormatCell, ref CSSstyle CellStyle, ref string Text, ref string FontFamily, ref float FontSize)
         {
-            if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontName))
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontName))
             {
                 FontFamily = FontList[FormatCell.wFontNumber].lfFaceName;
                 CellStyle.Set("font-family", FontFamily);
             }
 
-            if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontSize))
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontSize))
             {
                 FontSize = (float)-FormatCell.wFontSize / 4;
                 CellStyle.Set("font-size", $"{Math.Round(FontSize, 0)}pt");
             }
 
-            if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontWeight))
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontWeight))
                 CellStyle.Set("font-weight", FormatCell.bFontBold.ToString());
 
-            if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontColor))
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontColor))
             {
                 int ColorIndex = FormatCell.bFontColor;
                 if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
@@ -211,10 +211,10 @@ namespace Moxel
                 CellStyle.Set("max-width", "0px");
             }
 
-            if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.AlignV))
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV))
                 CellStyle.Set("vertical-align", FormatCell.bVertAlign.ToString());
 
-            if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.AlignH))
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignH))
                 CellStyle.Set("text-align", FormatCell.bHorAlign.ToString());
         }
 
@@ -227,7 +227,7 @@ namespace Moxel
             if (FontList.Count == 1)
                 DefFontNAme = $" style=\"font-family:{FontList.Last().Value.lfFaceName}\"";
 
-            if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontSize))
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontSize))
                 DefFontSize = -(float)FormatCell.wFontSize / 4;
 
 
@@ -257,7 +257,7 @@ namespace Moxel
                 else
                     FormatCell = DefFormat;
 
-                if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.ColumnWidth))
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
                     Width = $" width={Math.Round(FormatCell.wWidth * 0.875).ToString()}";
 
 
@@ -269,7 +269,7 @@ namespace Moxel
             for (int rownumber = 0; rownumber < nAllRowCount; rownumber++)
             {
                 MoxelRow Row = null;
-
+                FormatCell = DefFormat;
                 CSSstyle RowStyle = new CSSstyle();
                 StringBuilder RowString = new StringBuilder();
 
@@ -311,8 +311,8 @@ namespace Moxel
 
                         textsize.Height /= Union.RowSpan + 1;
 
-                        if (!Row.FormatCell.dwFlags.HasFlag(MoxcelCellFlags.ColumnPagePosition))
-                            Row.FormatCell.dwFlags = Row.FormatCell.dwFlags | MoxcelCellFlags.RowHeight;
+                        if (!Row.FormatCell.dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
+                            Row.FormatCell.dwFlags = Row.FormatCell.dwFlags | MoxelCellFlags.RowHeight;
 
                         Row.FormatCell.wHeight = Math.Max((short)(Math.Max(textsize.Height, 15) * 3), Row.FormatCell.wHeight);
                         
@@ -321,22 +321,22 @@ namespace Moxel
                     if (FormatCell.bBorderTop == FormatCell.bBorderBottom
                         && FormatCell.bBorderBottom == FormatCell.bBorderLeft
                         && FormatCell.bBorderLeft == FormatCell.bBorderRight
-                        && FormatCell.dwFlags.HasFlag(MoxcelCellFlags.BorderTop))
+                        && FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderTop))
                         CellStyle.Set("border", GetBorderStyle(FormatCell.bBorderTop, FormatCell.bBorderColor));
                     else
                     {
 
 
-                        if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.BorderTop))
+                        if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderTop))
                             CellStyle.Set("border-top", GetBorderStyle(FormatCell.bBorderTop, FormatCell.bBorderColor));
 
-                        if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.BorderLeft))
+                        if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
                             CellStyle.Set("border-left", GetBorderStyle(FormatCell.bBorderLeft, FormatCell.bBorderColor));
 
-                        if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.BorderRight))
+                        if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
                             CellStyle.Set("border-right", GetBorderStyle(FormatCell.bBorderRight, FormatCell.bBorderColor));
 
-                        if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.BorderBottom))
+                        if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderBottom))
                             CellStyle.Set("border-bottom", GetBorderStyle(FormatCell.bBorderBottom, FormatCell.bBorderColor));
                     }
 
@@ -364,7 +364,7 @@ namespace Moxel
                     columnnumber += colspan;
                 }
 
-                if (Row.FormatCell.dwFlags.HasFlag(MoxcelCellFlags.ColumnPagePosition))
+                if (Row.FormatCell.dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
                 {
                     RowStyle.Set("height", $"{Row.FormatCell.wHeight / 3}px");
                 }
@@ -378,6 +378,47 @@ namespace Moxel
             foreach(EmbeddedObject obj in Objects)
             {
                 CSSstyle PictureStyle = new CSSstyle();
+                FormatCell = obj.Format.FormatCell;
+
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
+                {
+                    int ColorIndex = FormatCell.bBackground;
+                    if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
+                    {
+                        Color bgColor = Color.FromArgb((int)(a1CPallete[ColorIndex] + 0xFF000000));
+                        PictureStyle.Set("background-color", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
+                    }
+                }
+
+
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
+                {
+                    if(FormatCell.bPictureBorderPresence != ObjectBorderPresence.All)
+                    {
+                        if(FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Left))
+                            PictureStyle.Set("border-left", FormatCell.bPictureBorderStyle.ToString());
+                        if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Right))
+                            PictureStyle.Set("border-right", FormatCell.bPictureBorderStyle.ToString());
+                        if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Top))
+                            PictureStyle.Set("border-top", FormatCell.bPictureBorderStyle.ToString());
+                        if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Bottom))
+                            PictureStyle.Set("border-bottom", FormatCell.bPictureBorderStyle.ToString());
+                    }
+                    else
+                        PictureStyle.Set("border", FormatCell.bPictureBorderStyle.ToString());
+
+                    PictureStyle.Set("border-width", $"{(byte)FormatCell.bPictureBorderWidth + 1}px");
+                }
+
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderColor))
+                {
+                    int ColorIndex = FormatCell.bBorderColor;
+                    if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
+                    {
+                        Color bgColor = Color.FromArgb((int)(a1CPallete[ColorIndex] + 0xFF000000));
+                        PictureStyle.Set("border-color", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
+                    }
+                }
 
                 int StartPx = (int)Math.Round(GetWidth(0, obj.Picture.dwColumnStart) * 0.875 + obj.Picture.dwOffsetLeft / 2.8,0);
                 PictureStyle.Add("left", $"{StartPx}px");
@@ -394,6 +435,7 @@ namespace Moxel
 
                 PictureStyle.Add("position", "absolute");
                 result.Append($"\t\t<div id=\"D{obj.dwItemNumber}\"{PictureStyle}>\r\n");
+
 
                 string DataUri = string.Empty;
                 switch (obj.Picture.dwType)
@@ -428,7 +470,7 @@ namespace Moxel
 
         #region Перечисления
         [Flags]
-        public enum MoxcelCellFlags : UInt32
+        public enum MoxelCellFlags : uint
         {
             Empty = 0x00000000,
             FontName = 0x00000001,
@@ -436,17 +478,24 @@ namespace Moxel
             FontWeight = 0x00000004,
             FontItalic = 0x00000008,
             FontUnderline = 0x00000010,
-            BorderLeft = 0x00000020,
-            PictureBorderStyle = 0x00000020,
-            BorderTop = 0x00000040,
-            PictureBorderWidth = 0x00000040,
-            BorderRight = 0x00000080,
-            PictureBorderPresence = 0x00000080,
-            BorderBottom = 0x00000100,
-            PicturePrint = 0x00000100,
+            /// <summary>
+            /// Так же PictureBorderStyle 
+            /// </summary>
+            BorderLeft = 0x00000020,   //   PictureBorderStyle = 0x00000020,
+            /// <summary>
+            /// Так же PictureBorderWidth
+            /// </summary>
+            BorderTop = 0x00000040,    //   PictureBorderWidth = 0x00000040,
+            /// <summary>
+            /// Так же PictureBorderPresence
+            /// </summary>
+            BorderRight = 0x00000080,  //   PictureBorderPresence = 0x00000080,
+            BorderBottom = 0x00000100, //   PicturePrint = 0x00000100,
             BorderColor = 0x00000200,
-            ColumnPagePosition = 0x00000400,
-            RowHeight = 0x00000400,
+            /// <summary>
+            /// Так же ColumnPagePosition
+            /// </summary>
+            RowHeight = 0x00000400,    //   ColumnPagePosition = 0x00000400,
             ColumnWidth = 0x00000800,
             AlignH = 0x00001000,
             AlignV = 0x00002000,
@@ -616,7 +665,7 @@ namespace Moxel
         [StructLayout(LayoutKind.Explicit, CharSet = CharSet.Ansi, Pack = 1)]
         public struct Cellv6
         {
-            [FieldOffset(0x00)] public MoxcelCellFlags dwFlags; // MoxcelCellFlags
+            [FieldOffset(0x00)] public MoxelCellFlags dwFlags; // MoxcelCellFlags
         // union{
             [FieldOffset(0x04)] public short wShow; // 1 - да, 0xFFFF - нет. Используется в колонтитулах
             [FieldOffset(0x04)] public short wColumnPosition; // Используется в колонках
@@ -640,8 +689,8 @@ namespace Moxel
         // union {
             [FieldOffset(0x12)] public BorderStyle bBorderLeft;
             [FieldOffset(0x12)] public ObjectBorderStyle bPictureBorderStyle;
-        //};
-        // union {
+                                                                             //};
+                                                                             // union {
             [FieldOffset(0x13)] public BorderStyle bBorderTop;
             [FieldOffset(0x13)] public ObjectBorderWidth bPictureBorderWidth;
         //};
@@ -666,7 +715,7 @@ namespace Moxel
 
             public static Cellv6 Empty = new Cellv6
             {
-                dwFlags = MoxcelCellFlags.Empty,
+                dwFlags = MoxelCellFlags.Empty,
                 wShow = 0,
                 wColumnPosition = 0,
                 wHeight = 0,
@@ -711,17 +760,17 @@ namespace Moxel
             public DataCell(BinaryReader br)
             {
                 FormatCell = br.Read<Cellv6>();
-                if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.Text))
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Text))
                 {
                     Text = br.ReadCString();
                 }
 
-                if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.Value))
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Value))
                 {
                     Value = br.ReadCString();
                 }
 
-                if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.Data))
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Data))
                 {
                     Data = br.ReadBytes(br.ReadCount());
                 }
@@ -969,7 +1018,7 @@ namespace Moxel
                             MakeTransparent = true;
                         }
 
-                    if (Format.FormatCell.dwFlags.HasFlag(MoxcelCellFlags.Background))
+                    if (Format.FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
                     {
                         int ColorIndex = Format.FormatCell.bBackground;
                         if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
@@ -985,7 +1034,7 @@ namespace Moxel
                     if (MakeTransparent)
                         m.MakeTransparent(bgColor);
 
-                    m.Save($"L:\\OleObject_{dwItemNumber}.png", ImageFormat.Png);
+                    //m.Save($"L:\\OleObject_{dwItemNumber}.png", ImageFormat.Png);
                 }
                 //pOle.Close(0);
                 //Marshal.ReleaseComObject(pOle);
@@ -1299,7 +1348,7 @@ namespace Moxel
             DashDotDot = 5
         };
 
-        public enum ObjectBorderWidth
+        public enum ObjectBorderWidth : byte
         {
             Thin = 0,
             Medium = 1,
