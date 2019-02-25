@@ -100,6 +100,55 @@ namespace Moxel
             }
         }
 
+
+        public int GetColumnWidth(int ColNumber)
+        {
+            int result = 0;
+            if (DefFormat.dwFlags.HasFlag(MoxcelCellFlags.ColumnWidth))
+                result = DefFormat.wWidth;
+
+            if(Columns.ContainsKey(ColNumber))
+                if(Columns[ColNumber].dwFlags.HasFlag(MoxcelCellFlags.ColumnWidth))
+                    result = Columns[ColNumber].wWidth;
+
+            return result;
+        }
+
+        public int GetWidth(int x1, int x2)
+        {
+            int width = 0;
+            for (int i = x1; i < x2; i++)
+                width += GetColumnWidth(i);
+
+            return width;
+        }
+
+        public int GetRowHeight(int RowNumber)
+        {
+            int result = 0;
+            if (DefFormat.dwFlags.HasFlag(MoxcelCellFlags.RowHeight))
+                result = DefFormat.wHeight;
+
+            if (Rows.ContainsKey(RowNumber))
+                if (Rows[RowNumber].FormatCell.dwFlags.HasFlag(MoxcelCellFlags.RowHeight))
+                    result = Rows[RowNumber].FormatCell.wWidth;
+
+            if (result == 0)
+                result = 45;
+
+            return result;
+        }
+
+        private int GetHeight(int y1, int y2)
+        {
+            int height = 0;
+            for (int i = y1; i < y2; i++)
+                height += GetRowHeight(i);
+
+            return height;
+        }
+
+
         public bool SaveToHtml(string filename)
         {
             string DefFontNAme = string.Empty;
@@ -109,7 +158,7 @@ namespace Moxel
 
             Cellv6 FormatCell = DefFormat;
 
-            StringBuilder result = new StringBuilder("<!DOCTYPE HTML PUBLIC \" -//W3C//DTD HTML 5.0 Transitional//EN\">\r\n<HTML>\r\n<HEAD><META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; CHARSET = utf-8\"></HEAD>\r\n");
+            StringBuilder result = new StringBuilder("<!DOCTYPE HTML PUBLIC \" -//W3C//DTD HTML 5.0 Transitional//EN\">\r\n<HTML>\r\n<HEAD><META HTTP-EQUIV=\"Content-Type\" CONTENT=\"text/html; CHARSET = utf-8\"/></HEAD>\r\n");
             result.Append($"\t<body{DefFontNAme} style=\"background: rgb(255, 255, 255); margin: 0px;\">\r\n");
             result.Append($"\t\t<TABLE style=\"width: 100 %; height: 0px; table-layout: fixed; padding: 0px; padding-left: 2px; vertical-align:bottom; border-collapse:collapse; font-family: Arial; font-size: 8pt; font-style: normal;\" border=0 CELLSPACING=0>\r\n");
             for (int columnnumber = 0; columnnumber < nAllColumnCount; columnnumber++)
@@ -164,21 +213,30 @@ namespace Moxel
                         }
                     }
 
-
-                    if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontName))
-                        CellStyle.Set("font-family", FontList[FormatCell.wFontNumber].lfFaceName);
-
-                    if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontSize))
-                        CellStyle.Set("font-size", $"{-FormatCell.wFontSize / 4}pt");
-
-                    if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontWeight))
-                        CellStyle.Set("font-weight", FormatCell.bFontBold.ToString());
-
-                    if (FormatCell.bControlContent != TextControl.Wrap && !string.IsNullOrWhiteSpace(Text))
+                    if (!string.IsNullOrWhiteSpace(Text))
                     {
-                        Text = Text.Replace(" ", "&nbsp");
-                        CellStyle.Set("white-space", "nowrap");
-                        CellStyle.Set("max-width", "0px");
+                        if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontName))
+                            CellStyle.Set("font-family", FontList[FormatCell.wFontNumber].lfFaceName);
+
+                        if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontSize))
+                            CellStyle.Set("font-size", $"{Math.Round((float)-FormatCell.wFontSize/4, 0)}pt");
+
+                        if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.FontWeight))
+                            CellStyle.Set("font-weight", FormatCell.bFontBold.ToString());
+
+                        if (FormatCell.bControlContent != TextControl.Wrap)
+                        {
+                            Text = Text.Replace(" ", "&nbsp");
+                            CellStyle.Set("white-space", "nowrap");
+                            CellStyle.Set("max-width", "0px");
+                        }
+
+                        if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.AlignV))
+                            CellStyle.Set("vertical-align", FormatCell.bVertAlign.ToString());
+
+                        if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.AlignH))
+                            CellStyle.Set("text-align", FormatCell.bHorAlign.ToString());
+
                     }
 
                     if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.BorderTop))
@@ -193,28 +251,55 @@ namespace Moxel
                     if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.BorderBottom))
                         CellStyle.Set("border-bottom", GetBorderStyle(FormatCell.bBorderBottom, FormatCell.bBorderColor));
 
-                    if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.AlignV))
-                        CellStyle.Set("vertical-align", FormatCell.bVertAlign.ToString());
-                    { }
-
-                    if (FormatCell.dwFlags.HasFlag(MoxcelCellFlags.AlignH))
-                        CellStyle.Set("text-align", FormatCell.bHorAlign.ToString());
-                    { }
-
 
                     if (!Union.ContainsCell(rownumber, columnnumber))
-                        result.Append($"\t\t\t\t<td{Union.HtmlSpan}{CellStyle}>{Text}</td>\r\n");
+                        if(!string.IsNullOrWhiteSpace(Text))
+                            result.Append($"\t\t\t\t<td{Union.HtmlSpan}{CellStyle}>{Text}</td>\r\n");
+                        else
+                            result.Append($"\t\t\t\t<td{Union.HtmlSpan}{CellStyle}/>\r\n");
 
                     columnnumber += Union.ColumnSpan;
                 }
                 result.Append("\t\t\t</tr>\r\n");
             }
             result.Append("\t\t</table>\r\n");
+
+            foreach(EmbeddedObject obj in Objects)
+            {
+                CSSstyle PictureStyle = new CSSstyle();
+
+                int StartPx = (int)Math.Round(GetWidth(0, obj.Picture.dwColumnStart) * 0.875 + obj.Picture.dwOffsetLeft / 2.8,0);
+                PictureStyle.Add("left", $"{StartPx}px");
+                int Width = (int)Math.Round(GetWidth(0, obj.Picture.dwColumnEnd) * 0.875 + obj.Picture.dwOffsetRight / 2.8 - StartPx, 0);
+
+                PictureStyle.Add("width", $"{Width}px");
+
+                int Top = (int)Math.Round(GetHeight(0, obj.Picture.dwRowStart) / 3 + obj.Picture.dwOffsetTop / 2.8, 0);
+                PictureStyle.Add("Top", $"{Top}px");
+
+                int Height = (int)Math.Round(GetHeight(0, obj.Picture.dwRowEnd) / 3 + obj.Picture.dwOffsetBottom / 2.8 - Top, 0);
+                PictureStyle.Add("height", $"{Height}px");
+
+
+                PictureStyle.Add("position", "absolute");
+                string DataUri = string.Empty;
+                using (MemoryStream ms = new MemoryStream())
+                {
+                    ((Bitmap)obj.pObject).Save(ms, ImageFormat.Png);
+                    DataUri =  Convert.ToBase64String(ms.ToArray());
+                }
+                     
+                result.Append($"\t\t<div id=\"D{obj.dwItemNumber}\"{PictureStyle}>\r\n");
+                result.Append($"\t\t\t<img src=\"data:image/png;base64,{DataUri}\" width=\"{Width}\" height=\"{Height}\">\r\n");
+                result.Append("\t\t</div>\r\n");
+            }
+
             result.Append("\t</body>\r\n");
             result.Append("</html>");
             File.WriteAllText(filename, result.ToString(), Encoding.UTF8);
             return true;
         }
+
 
 
         #region Перечисления
@@ -558,6 +643,7 @@ namespace Moxel
             public object OleObject;
             public string ProgID;
             public Guid ClsId;
+            public int dwItemNumber = 0;
 
             public EmbeddedObject()
             { }
@@ -689,7 +775,7 @@ namespace Moxel
                 }
 
                 int dwObjectType = br.ReadInt32();
-                int dwItemNumber = br.ReadInt32();
+                dwItemNumber = br.ReadInt32();
                 int dwAspect = br.ReadInt32();
                 short wUseMoniker = br.ReadInt16();
 
@@ -774,42 +860,6 @@ namespace Moxel
 
                 OLE32.CoUninitialize();
                 return m;
-
-                /*
-	                CComObject<Utils::ILockBytesInMemory> *pLockBytesObject =
-		                new CComObject<Utils::ILockBytesInMemory>;
-
-	                CComPtr<ILockBytes> pLockBytes;
-	                if (FAILED (pLockBytesObject->QueryInterface (IID_ILockBytes,
-		                (void **)&pLockBytes))) {
-		                delete pLockBytesObject;
-		                throw OutOfMemory ();
-	                }
-
-	                pLockBytesObject->SetBuffer (&ObjectStorage [0], dwObjectSize);
-
-	                CComPtr<IStorage> pStorage;
-	                if (!SUCCEEDED (::StgOpenStorageOnILockBytes (pLockBytes, NULL,
-		                STGM_READ | STGM_SHARE_EXCLUSIVE, NULL,
-		                0, &pStorage))) {
-
-		                throw BadFileFormat ("Некорректный OLE-объект");
-	                }
-
-	                COleObjectPtr pObject = m_pSheet->CreateOleObject ();
-
-	                try {
-		                pObject->Load (pStorage);
-	                }
-	                catch (Utils::Exception) {
-		                throw OutOfMemory ();
-	                }
-
-	                FillObjectProps (pObject, mxlPicture);
-                  
-                 */
-
-
             }
 
             private object LoadRectangle(Picture picture, BinaryReader br)
