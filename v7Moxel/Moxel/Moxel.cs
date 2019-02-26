@@ -230,6 +230,46 @@ namespace Moxel
             }
         }
 
+        public void FillLineStyle(Cellv6 FormatCell, ref CSSstyle LineStyle)
+        {
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
+                switch (FormatCell.bPictureBorderStyle)
+                {
+                    case ObjectBorderStyle.DashDotDot:
+                        LineStyle.Set("stroke-dasharray", "11 3 3 3 3 3");
+                        break;
+                    case ObjectBorderStyle.DashDotSparse:
+                        LineStyle.Set("stroke-dasharray", "8 5 3 5");
+                        break;
+                    case ObjectBorderStyle.DashedExtraLong:
+                        LineStyle.Set("stroke-dasharray", "16 6");
+                        break;
+                    case ObjectBorderStyle.DashedShort:
+                        LineStyle.Set("stroke-dasharray", "3 3");
+                        break;
+                    case ObjectBorderStyle.Solid:
+                        break;
+                    default:
+                        break;
+                }
+
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderTop))
+            {
+                LineStyle.Set("stroke-width", $"{(byte)FormatCell.bPictureBorderWidth * 2 + 1}px");
+            }
+
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderColor))
+            {
+                int ColorIndex = FormatCell.bBorderColor;
+                if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
+                {
+                    Color bgColor = Color.FromArgb((int)(a1CPallete[ColorIndex] + 0xFF000000));
+                    LineStyle.Set("stroke", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
+                }
+            }
+        }
+
+
         public bool SaveToHtml(string filename)
         {
             Cellv6 FormatCell = DefFormat;
@@ -237,7 +277,7 @@ namespace Moxel
             float DefFontSize = 8.0f;
 
             if (FontList.Count == 1)
-                DefFontNAme = $" style=\"font-family:{FontList.Last().Value.lfFaceName}\"";
+                DefFontNAme = $" style=\"font-family:{FontList.First().Value.lfFaceName}\"";
 
             if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontSize))
                 DefFontSize = -(float)FormatCell.wFontSize / 4;
@@ -390,79 +430,82 @@ namespace Moxel
             {
                 CSSstyle PictureStyle = new CSSstyle();
                 FormatCell = obj.Format.FormatCell;
-
-                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
+                if (obj.Picture.dwType != ObjectType.Line)
                 {
-                    int ColorIndex = FormatCell.bBackground;
-                    if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
+                    if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
                     {
-                        Color bgColor = Color.FromArgb((int)(a1CPallete[ColorIndex] + 0xFF000000));
-                        PictureStyle.Set("background-color", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
+                        int ColorIndex = FormatCell.bBackground;
+                        if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
+                        {
+                            Color bgColor = Color.FromArgb((int)(a1CPallete[ColorIndex] + 0xFF000000));
+                            PictureStyle.Set("background-color", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
+                        }
                     }
-                }
 
 
-                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight) || FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
-                {
-                    if((FormatCell.bPictureBorderPresence != ObjectBorderPresence.All) && FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
+                    if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight) || FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
                     {
-                        if(FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Left))
-                            PictureStyle.Set("border-left", FormatCell.bPictureBorderStyle.ToString());
-                        if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Right))
-                            PictureStyle.Set("border-right", FormatCell.bPictureBorderStyle.ToString());
-                        if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Top))
-                            PictureStyle.Set("border-top", FormatCell.bPictureBorderStyle.ToString());
-                        if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Bottom))
-                            PictureStyle.Set("border-bottom", FormatCell.bPictureBorderStyle.ToString());
+                        if ((FormatCell.bPictureBorderPresence != ObjectBorderPresence.All) && FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
+                        {
+                            if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Left))
+                                PictureStyle.Set("border-left", FormatCell.bPictureBorderStyle.ToString());
+                            if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Right))
+                                PictureStyle.Set("border-right", FormatCell.bPictureBorderStyle.ToString());
+                            if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Top))
+                                PictureStyle.Set("border-top", FormatCell.bPictureBorderStyle.ToString());
+                            if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Bottom))
+                                PictureStyle.Set("border-bottom", FormatCell.bPictureBorderStyle.ToString());
+                        }
+                        else
+                            PictureStyle.Set("border", FormatCell.bPictureBorderStyle.ToString());
+
+                        PictureStyle.Set("border-width", $"{(byte)FormatCell.bPictureBorderWidth * 2 + 1}px");
+
+                        PictureStyle.Set("border-color", "#000000");
                     }
                     else
-                        PictureStyle.Set("border", FormatCell.bPictureBorderStyle.ToString());
-
-                    PictureStyle.Set("border-width", $"{(byte)FormatCell.bPictureBorderWidth + 1}px");
-                    PictureStyle.Set("border-color", "#000000");
-                }
-                else
-                {
-                    PictureStyle.Set("border", "#000000 solid 1px");
-                }
-
-                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderColor))
-                {
-                    int ColorIndex = FormatCell.bBorderColor;
-                    if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
                     {
-                        Color bgColor = Color.FromArgb((int)(a1CPallete[ColorIndex] + 0xFF000000));
-                        PictureStyle.Set("border-color", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
+                        if(!FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderTop))
+                            PictureStyle.Set("border", "#000000 solid 1px");
+                        else
+                            PictureStyle.Set("border", $"#000000 solid {(byte)FormatCell.bPictureBorderWidth * 2 + 1}px");
                     }
+
+                    if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderColor))
+                    {
+                        int ColorIndex = FormatCell.bBorderColor;
+                        if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
+                        {
+                            Color bgColor = Color.FromArgb((int)(a1CPallete[ColorIndex] + 0xFF000000));
+                            PictureStyle.Set("border-color", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
+                        }
+                    }
+
+                    FillFormat(obj.Format.FormatCell, ref PictureStyle, ref obj.Format.Text);
                 }
 
-                int StartPx = (int)Math.Round(GetWidth(0, obj.Picture.dwColumnStart) * 0.875 + obj.Picture.dwOffsetLeft / 2.8,0);
-                PictureStyle.Add("left", $"{StartPx}px");
-                int Width = (int)Math.Round(GetWidth(0, obj.Picture.dwColumnEnd) * 0.875 + obj.Picture.dwOffsetRight / 2.8 - StartPx, 0);
-
-                PictureStyle.Add("width", $"{Width}px");
-
-                int Top = (int)Math.Round(GetHeight(0, obj.Picture.dwRowStart) / 3 + obj.Picture.dwOffsetTop / 2.8, 0);
-                PictureStyle.Add("Top", $"{Top}px");
-
-                int Height = (int)Math.Round(GetHeight(0, obj.Picture.dwRowEnd) / 3 + obj.Picture.dwOffsetBottom / 2.8 - Top, 0);
-                PictureStyle.Add("height", $"{Height}px");
+                Rectangle DrawingArea = obj.AbsoluteImageArea;
                 PictureStyle.Add("position", "absolute");
 
-                if(FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV))
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV))
                 {
-                    if(FormatCell.bVertAlign == TextVertAlign.Middle)
+                    PictureStyle.Remove("vertical-align");
+                    if (FormatCell.bVertAlign == TextVertAlign.Middle)
                     {
                         PictureStyle.Add("display", "flex");
                         PictureStyle.Add("align-items", "center");
                     }
                 }
+                CSSstyle LineStyle = new CSSstyle();
+                LineStyle.Set("stroke", "#000000");
+                FillLineStyle(FormatCell, ref LineStyle);
+                int BorderWith = (int)FormatCell.bPictureBorderWidth * 2 + 1;
 
-                FillFormat(obj.Format.FormatCell, ref PictureStyle, ref obj.Format.Text);
 
-                result.Append($"\t\t<div id=\"D{obj.dwItemNumber}\"{PictureStyle}>\r\n");
+                PictureStyle.Add("top", $"{DrawingArea.Top - BorderWith}px");
+                PictureStyle.Add("left", $"{DrawingArea.Left - BorderWith}px");
 
-
+                result.Append($"\t\t<div id=\"D{obj.Picture.dwZOrder}\"{PictureStyle}>\r\n");
                 string DataUri = string.Empty;
                 switch (obj.Picture.dwType)
                 {
@@ -472,14 +515,37 @@ namespace Moxel
                             {
                                 ((Bitmap)obj.pObject)?.Save(ms, ImageFormat.Png);
                                 DataUri = Convert.ToBase64String(ms.ToArray());
-                                result.Append($"\t\t\t<img src=\"data:image/png;base64,{DataUri}\" width=\"{Width}\" height=\"{Height}\">\r\n");
+                                result.Append($"\t\t\t<img src=\"data:image/png;base64,{DataUri}\" width=\"{DrawingArea.Width + BorderWith}\" height=\"{DrawingArea.Height + BorderWith}\">\r\n");
                             }
                         break;
                     case ObjectType.Text:
                         result.AppendLine($"<p>{obj.Format.Text.Replace("\r\n", "<br>")}</p>");
                         break;
                     case ObjectType.Line:
-                        result.AppendLine();
+                        result.AppendLine($"<svg baseProfile=\"full\" xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" height = \"{Math.Max(DrawingArea.Height,10)}px\"  width = \"{Math.Max(DrawingArea.Width,10)}px\" text-rendering=\"geometricPrecision\">");
+                        result.AppendLine("<g transform=\"translate(0.5, 0.5)\">");
+                        Rectangle LineCoords = obj.ImageArea;
+                        
+                        if (LineCoords.Height * LineCoords.Width >=0)
+                            result.AppendLine($"<line {LineStyle} x1=\"0\" y1=\"1\" x2=\"{DrawingArea.Width}\" y2=\"{Math.Max(DrawingArea.Height, BorderWith)}\"/>");
+                        else
+                            result.AppendLine($"<line {LineStyle} x1=\"0\" y2=\"1\" x2=\"{DrawingArea.Width}\" y1=\"{Math.Max(DrawingArea.Height, BorderWith)}\"/>");
+                        result.AppendLine("</g>");
+                        result.AppendLine("</svg>");
+                        break;
+                    case ObjectType.Rectangle:
+
+                        if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.PatternType))
+                            LineStyle.Set("fill", "url(#defpattern)");
+                        else
+                            LineStyle.Set("fill", "none");
+
+                        result.AppendLine($"<svg baseProfile=\"full\" xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" height = \"{DrawingArea.Height + BorderWith}px\"  width = \"{DrawingArea.Width + BorderWith}px\" text-rendering=\"geometricPrecision\">");
+                        result.AppendLine(GetSVGFilPattern(FormatCell));
+                        result.AppendLine("<g transform=\"translate(0.5, 0.5)\">");
+                        result.AppendLine($"<rect {LineStyle} x=\"{BorderWith / 2}\" y=\"{BorderWith / 2}\" width=\"{DrawingArea.Width}\" height=\"{DrawingArea.Height}\"/>");
+                        result.AppendLine("</g>");
+                        result.AppendLine("</svg>");
                         break;
                     default:
                         break;
@@ -491,6 +557,48 @@ namespace Moxel
             result.Append("</html>");
             File.WriteAllText(filename, result.ToString(), Encoding.UTF8);
             return true;
+        }
+
+        private string GetSVGFilPattern(Cellv6 formatCell)
+        {
+            Color PatternColor = Color.Black;
+            if (formatCell.dwFlags.HasFlag(MoxelCellFlags.PatternColor))
+            {
+                int ColorIndex = (int)formatCell.bPatternColor;
+                if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
+                {
+                    PatternColor = Color.FromArgb((int)(a1CPallete[ColorIndex]));
+                }
+            }
+            StringBuilder result = new StringBuilder($"<style type=\"text/css\">\r\n\t#defpattern {{ fill: rgb({PatternColor.R},{PatternColor.G}, {PatternColor.G}); }}\r\n\t</style>");
+
+            if (formatCell.dwFlags.HasFlag(MoxelCellFlags.PatternType))
+            {
+                switch (formatCell.bPatternType)
+                {
+                    case 1:
+                        result.AppendLine("<defs>\r\n\t<pattern id=\"defpattern\" patternUnits=\"userSpaceOnUse\" width=\"2\" height=\"2\">\r\n\t\t<rect x=\"0\" y=\"0\" width=\"1\" height=\"1\"/>\r\n\t\t\t<rect x=\"1\" y=\"0\" width=\"1\" height=\"1\" fill=\"#FFFFFF\"/>\r\n\t\t<rect x=\"0\" y=\"1\" width=\"2\" height=\"1\"></rect>\r\n\t</pattern>\r\n\t</defs>");
+                        break;
+                    case 2:
+                        result.AppendLine("<defs>\r\n\t<pattern id=\"defpattern\" patternUnits=\"userSpaceOnUse\" width=\"2\" height=\"2\">\r\n\t\t<rect x=\"0\" y=\"0\" width=\"1\" height=\"1\"/>\r\n\t\t\t<rect x=\"1\" y=\"0\" width=\"1\" height=\"1\" fill=\"#FFFFFF\"/>\r\n\t\t<rect x=\"1\" y=\"1\" width=\"1\" height=\"1\"></rect>\r\n\t\t\t<rect x=\"0\" y=\"1\" width=\"1\" height=\"1\" fill=\"#FFFFFF\"/>\r\n\t</pattern>\r\n\t</defs>");
+                        break;
+                    case 3:
+                        result.AppendLine("<defs>\r\n\t<pattern id=\"defpattern\" patternUnits=\"userSpaceOnUse\" width=\"2\" height=\"2\">\r\n\t\t<rect x=\"0\" y=\"0\" width=\"1\" height=\"1\"/>\r\n\t\t\t<rect x=\"1\" y=\"0\" width=\"1\" height=\"1\" fill=\"#FFFFFF\"/>\r\n\t\t<rect x=\"0\" y=\"1\" width=\"2\" height=\"1\" fill=\"#FFFFFF\"/>\r\n\t</pattern>\r\n\t</defs>");
+                        break;
+                    case 4:
+                        result.AppendLine("<defs>\r\n\t<pattern id=\"defpattern\" patternUnits=\"userSpaceOnUse\" width=\"8\" height=\"8\"><rect x=\"0\" y=\"0\" width=\"8\" height=\"8\"/>\r\n\t\t<rect x=\"0\" y=\"0\" width=\"3\" height=\"2\" fill=\"#FFFFFF\"/>\r\n\t\t<rect x=\"4\" y=\"0\" width=\"4\" height=\"2\" fill=\"#FFFFFF\"/>\r\n\t\t<rect x=\"0\" y=\"3\" width=\"7\" height=\"3\" fill=\"#FFFFFF\"/>\r\n\t\t<rect x=\"0\" y=\"7\" width=\"3\" height=\"1\" fill=\"#FFFFFF\"/>\r\n\t\t<rect x=\"4\" y=\"7\" width=\"4\" height=\"1\" fill=\"#FFFFFF\"/>\r\n\t</pattern>\r\n\t</defs>");
+                        break;
+                    case 5:
+                        result.AppendLine($"<defs>\r\n\t<pattern id=\"defpattern\" patternUnits=\"userSpaceOnUse\" width=\"8\" height=\"8\"><rect stroke-width=\"0\" height=\"8\" width=\"8\" y=\"0\" x=\"0\" fill=\"#FFFFFF\"></rect><path d=\" M 0 0.5 H 1 M 4 0.5 H 5 M 1 1.5 H 2 M 3 1.5 H 4 M 5 1.5 H 6 M 2 2.5 H 3 M 6 2.5 H 7 M 1 3.5 H 2 M 5 3.5 H 6 M 7 3.5 H 8 M 0 4.5 H 1 M 4 4.5 H 5 M 3 5.5 H 4 M 5 5.5 H 6 M 7 5.5 H 8 M 2 6.5 H 3 M 6 6.5 H 7 M 1 7.5 H 2 M 3 7.5 H 4 M 7 7.5 H 8\" stroke-width=\"1\" stroke=\"rgb({PatternColor.R},{PatternColor.G}, {PatternColor.G})\"/>\r\n\t</pattern>\r\n\t</defs>");
+                        break;
+                    default:
+                        break;
+                }
+            }
+            else
+                return string.Empty;
+
+            return result.ToString();
         }
 
 
@@ -836,19 +944,49 @@ namespace Moxel
                 Unknown
             }
 
+            public Rectangle AbsoluteImageArea { get
+                {
+                    int left=0, top=0, right=0, bottom=0;
+
+                        left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 2.8, 0);
+                        right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 2.8, 0);
+
+                        top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3 + Picture.dwOffsetTop / 2.8, 0);
+                        bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3 + Picture.dwOffsetBottom / 2.8, 0);
+
+                    return new Rectangle { X = Math.Min(left, right) , Y = Math.Min(top, bottom), Width = Math.Abs(right - left), Height = Math.Abs(bottom - top)};
+                }
+            }
+
+            public Rectangle ImageArea
+            {
+                get
+                {
+                    int left = 0, top = 0, right = 0, bottom = 0;
+
+                    left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 2.8, 0);
+                    right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 2.8, 0);
+
+                    top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3 + Picture.dwOffsetTop / 2.8, 0);
+                    bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3 + Picture.dwOffsetBottom / 2.8, 0);
+
+                    return new Rectangle { X = left, Y = top, Width = right - left, Height = bottom - top};
+                }
+            }
+            Moxel Parent = null;
             public DataCell Format;
             public Picture Picture;
             public object pObject;
             public object OleObject;
             public string ProgID;
             public Guid ClsId;
-            public int dwItemNumber = 0;
-            public int dwZorder = 0;
+            public byte[] OleObjectStorage;
 
             public EmbeddedObject()
             { }
-            public EmbeddedObject(BinaryReader br)
+            public EmbeddedObject(BinaryReader br, Moxel parent)
             {
+                Parent = parent;
                 Format = br.Read<DataCell>();
                 Picture = br.Read<Picture>();
                 switch (Picture.dwType)
@@ -857,13 +995,8 @@ namespace Moxel
                         pObject = LoadPicture(Picture, br );
                         break;
                     case ObjectType.Line:
-                        pObject = LoadLine(Picture, Format, br);
-                        break;
                     case ObjectType.Rectangle:
-                        pObject = LoadRectangle(Picture, br);
-                        break;
                     case ObjectType.Text:
-                        pObject = LoadTextBox(Picture, Format, br);
                         break;
                     case ObjectType.Ole:
                         pObject = LoadOleObject(br);
@@ -872,96 +1005,9 @@ namespace Moxel
                         throw new Exception("Неизвестный тип внедренного объекта");
                 }
             }
-            enum TernaryRasterOperations : uint
-            {
-                /// <summary>dest = source</summary>
-                SRCCOPY = 0x00CC0020,
-                /// <summary>dest = source OR dest</summary>
-                SRCPAINT = 0x00EE0086,
-                /// <summary>dest = source AND dest</summary>
-                SRCAND = 0x008800C6,
-                /// <summary>dest = source XOR dest</summary>
-                SRCINVERT = 0x00660046,
-                /// <summary>dest = source AND (NOT dest)</summary>
-                SRCERASE = 0x00440328,
-                /// <summary>dest = (NOT source)</summary>
-                NOTSRCCOPY = 0x00330008,
-                /// <summary>dest = (NOT src) AND (NOT dest)</summary>
-                NOTSRCERASE = 0x001100A6,
-                /// <summary>dest = (source AND pattern)</summary>
-                MERGECOPY = 0x00C000CA,
-                /// <summary>dest = (NOT source) OR dest</summary>
-                MERGEPAINT = 0x00BB0226,
-                /// <summary>dest = pattern</summary>
-                PATCOPY = 0x00F00021,
-                /// <summary>dest = DPSnoo</summary>
-                PATPAINT = 0x00FB0A09,
-                /// <summary>dest = pattern XOR dest</summary>
-                PATINVERT = 0x005A0049,
-                /// <summary>dest = (NOT dest)</summary>
-                DSTINVERT = 0x00550009,
-                /// <summary>dest = BLACK</summary>
-                BLACKNESS = 0x00000042,
-                /// <summary>dest = WHITE</summary>
-                WHITENESS = 0x00FF0062,
-                /// <summary>
-                /// Capture window as seen on screen.  This includes layered windows 
-                /// such as WPF windows with AllowsTransparency="true"
-                /// </summary>
-                CAPTUREBLT = 0x40000000
-            }
-
-            [DllImport("user32.dll", SetLastError = false)]
-            static extern IntPtr GetDesktopWindow();
-
-            [DllImport("user32.dll", SetLastError = false)]
-            static extern IntPtr GetWindowDC(IntPtr hWnd);
 
             [DllImport("gdi32.dll",  SetLastError = true)]
             static extern int GetDeviceCaps(IntPtr hDC, int Caps);
-
-            [DllImport("gdi32.dll", SetLastError = true)]
-            [return: MarshalAs(UnmanagedType.Bool)]
-            static extern bool BitBlt([In] IntPtr hdc, int nXDest, int nYDest, int nWidth, int nHeight, [In] IntPtr hdcSrc, int nXSrc, int nYSrc, TernaryRasterOperations dwRop);
-
-            [DllImport("gdi32.dll", SetLastError = true)]
-            [return: MarshalAs(UnmanagedType.Bool)]
-            static extern bool StretchBlt(IntPtr hdc,  int xDest,  int yDest,  int wDest,  int hDest, [In] IntPtr hdcSrc,  int xSrc,  int ySrc,  int wSrc,  int hSrc,  TernaryRasterOperations dwRop);
-
-
-            public static Bitmap CopyGraphicsContent(Graphics source, Rectangle rect)
-            {
-                Bitmap bmp = new Bitmap(rect.Width, rect.Height);
-                using (Graphics dest = Graphics.FromImage(bmp))
-                {
-                    IntPtr hdcSource = source.GetHdc();
-                    IntPtr hdcDest = dest.GetHdc();
-                    BitBlt(hdcDest, 0, 0, rect.Width, rect.Height, hdcSource, rect.X, rect.Y, TernaryRasterOperations.SRCCOPY);
-                    source.ReleaseHdc(hdcSource);
-                    dest.ReleaseHdc(hdcDest);
-                }
-                return bmp;
-            }
-
-            [DllImport("ole32.dll")]
-            static extern int ProgIDFromCLSID([In] ref Guid clsid,
-             [MarshalAs(UnmanagedType.LPWStr)] out string lplpszProgID);
-
-
-            [DllImport("ole32.dll")]
-            static extern HRESULT OleSetContainedObject(
-                  [In] IntPtr pUnknown,
-                  [MarshalAs(UnmanagedType.Bool)]
-                  [In] bool  fContained
-                );
-
-
-
-            [DllImport("ole32.dll")]
-            static extern HRESULT OleNoteObjectVisible(
-                  [In] IntPtr pUnknown,
-                  [MarshalAs(UnmanagedType.Bool)]
-                  [In] bool  fVisible);
 
             object LoadOleObject(BinaryReader br)
             {
@@ -975,23 +1021,21 @@ namespace Moxel
                 }
 
                 int dwObjectType = br.ReadInt32();
-                dwItemNumber = br.ReadInt32();
+                int dwItemNumber = br.ReadInt32();
                 int dwAspect = br.ReadInt32();
                 short wUseMoniker = br.ReadInt16();
 
                 dwAspect = br.ReadInt32();
 
                 int dwObjectSize = br.ReadInt32();
-                byte[] ObjectStorage = br.ReadBytes(dwObjectSize);
-
-                //File.WriteAllBytes($"L:\\OleObject_{dwItemNumber}.bin", ObjectStorage);
+                OleObjectStorage = br.ReadBytes(dwObjectSize);
 
                 OLE32.CoInitializeEx(IntPtr.Zero, OLE32.CoInit.ApartmentThreaded); //COINIT_APARTMENTTHREADED
                 OLE32.ILockBytes LockBytes;
                 OLE32.IStorage RootStorage;
 
-                IntPtr hGlobal = Marshal.AllocHGlobal(ObjectStorage.Length);
-                Marshal.Copy(ObjectStorage, 0, hGlobal, ObjectStorage.Length);
+                IntPtr hGlobal = Marshal.AllocHGlobal(OleObjectStorage.Length);
+                Marshal.Copy(OleObjectStorage, 0, hGlobal, OleObjectStorage.Length);
                 OLE32.CreateILockBytesOnHGlobal(hGlobal, false, out LockBytes);
                 OLE32.IOleObject pOle = null;
 
@@ -1000,7 +1044,7 @@ namespace Moxel
                 System.Runtime.InteropServices.ComTypes.STATSTG MetaDataInfo;
                 RootStorage.Stat(out MetaDataInfo, 0);
                 ClsId = MetaDataInfo.clsid;
-                ProgIDFromCLSID(ref ClsId, out ProgID);
+                OLE32.ProgIDFromCLSID(ref ClsId, out ProgID);
 
                 Guid IID_IUnknown = new Guid("00000000-0000-0000-C000-000000000046");
 
@@ -1013,14 +1057,14 @@ namespace Moxel
                 }
 
                 IntPtr pUnknwn = Marshal.GetIUnknownForObject(pOle);
-                result = OleSetContainedObject(pUnknwn, true);
-                result = OleNoteObjectVisible(pUnknwn, true);
+                result = OLE32.OleSetContainedObject(pUnknwn, true);
+                result = OLE32.OleNoteObjectVisible(pUnknwn, true);
                 Marshal.Release(pUnknwn);
                 result = OLE32.OleRun(pOle);
 
-                tagSIZEL sizel = new tagSIZEL();
-                pOle.GetExtent(1, ref sizel);
-                float LogUnitsPerDevPixel_X = 1, LogUnitsPerDevPixel_Y = 1;
+                //tagSIZEL sizel = new tagSIZEL();
+                //pOle.GetExtent(1, ref sizel);
+                //float LogUnitsPerDevPixel_X = 1, LogUnitsPerDevPixel_Y = 1;
 
                 //using (Graphics g = Graphics.FromImage(new Bitmap(1, 1)))
                 //{
@@ -1030,7 +1074,9 @@ namespace Moxel
                 //    g.ReleaseHdc(hdcsrc.Handle);
                 //}
 
-                Rectangle rect = new Rectangle(0, 0, (int)(sizel.cx / LogUnitsPerDevPixel_X), (int)(sizel.cy / LogUnitsPerDevPixel_Y));
+                Rectangle Size = AbsoluteImageArea;
+
+                Rectangle rect = new Rectangle(0, 0, Size.Width * 3, Size.Height * 3 );
                 Bitmap m = new Bitmap(rect.Width, rect.Height);
 
                 using (Graphics g = Graphics.FromImage(m))
@@ -1040,7 +1086,7 @@ namespace Moxel
                     
                     bool MakeTransparent = false;
                     if (ProgID == "BMP1C.Bmp1cCtrl.1")
-                        if ((pOle as _DBmp_1c).GrMode == 1)
+                        if ((pOle as _DBmp_1c).GrMode == 1) // Иначе рисует только маску
                         {
                             (pOle as _DBmp_1c).GrMode = 2;
                             MakeTransparent = true;
@@ -1111,14 +1157,16 @@ namespace Moxel
 
         public class MoxelRow
         {
-            public Cellv6 FormatCell;
-            public Dictionary<int, DataCell> Cells;
+            public Cellv6 FormatCell = Cellv6.Empty;
+            public Dictionary<int, DataCell> Cells = new Dictionary<int, DataCell>();
+            Moxel Parent = null;
 
             public MoxelRow()
             { }
 
-            public MoxelRow(BinaryReader br)
+            public MoxelRow(BinaryReader br, Moxel parent)
             {
+                Parent = parent;
                 FormatCell = br.Read<Cellv6>();
                 Cells = br.ReadDictionary<DataCell>();
             }
@@ -1263,8 +1311,8 @@ namespace Moxel
             BottomColon = br.Read<DataCell>();
 
             Columns = br.ReadDictionary<Cellv6>();
-            Rows = br.ReadDictionary<MoxelRow>();
-            Objects = br.ReadList<EmbeddedObject>();
+            Rows = br.ReadDictionary<MoxelRow>(this);
+            Objects = br.ReadList<EmbeddedObject>(this);
             Unions = br.ReadList<CellsUnion>();
             VerticalSections = br.ReadList<Section>();
             HorisontalSections = br.ReadList<Section>();

@@ -66,7 +66,7 @@ namespace Moxel
         }
 
         [Flags]
-        public  enum STGM : int
+        public enum STGM : int
         {
             STGM_READ = 0x0,
             STGM_WRITE = 0x1,
@@ -151,7 +151,7 @@ namespace Moxel
         public static extern int OleSetContainedObject([MarshalAs(UnmanagedType.IUnknown)] object pUnk, bool fContained);
 
         [DllImport("ole32.dll")]
-        public static extern Ole.HRESULT OleRun([MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
+        public static extern HRESULT OleRun([MarshalAs(UnmanagedType.IUnknown)] object pUnknown);
 
         [DllImport("Ole32.dll", ExactSpelling = true, EntryPoint = "CoInitialize",
    CallingConvention = CallingConvention.StdCall, SetLastError = false)]
@@ -192,12 +192,12 @@ namespace Moxel
 
         [DllImport("ole32.dll")]
         [PreserveSig()]
-        public static extern Ole.HRESULT StgOpenStorageOnILockBytes(ILockBytes plkbyt,
+        public static extern HRESULT StgOpenStorageOnILockBytes(ILockBytes plkbyt,
          IStorage pStgPriority, STGM grfMode, IntPtr snbEnclude, uint reserved,
          out IStorage ppstgOpen);
 
         [DllImport("ole32.dll")]
-        public static extern Ole.HRESULT OleCreateFromFile([In] ref Guid rclsid,
+        public static extern HRESULT OleCreateFromFile([In] ref Guid rclsid,
            [MarshalAs(UnmanagedType.LPWStr)] string lpszFileName, [In] ref Guid riid,
            uint renderopt, [In] ref FORMATETC pFormatEtc, IOleClientSite pClientSite,
            IStorage pStg, [MarshalAs(UnmanagedType.IUnknown)] out object ppvObj);
@@ -208,26 +208,34 @@ namespace Moxel
            out System.Runtime.InteropServices.ComTypes.IStream ppstm);
 
         [DllImport("ole32.dll")]
-        public static extern Ole.HRESULT OleLoadFromStream(
+        public static extern HRESULT OleLoadFromStream(
            System.Runtime.InteropServices.ComTypes.IStream pStm,
            [In] ref Guid riid,
            out IOleObject ppvObj);
 
         [DllImport("ole32.dll", SetLastError = true)]
-        public static extern Ole.HRESULT OleLoad(
-          [In] IStorage       pStg,
-          [In] ref Guid           riid,
+        public static extern HRESULT OleLoad(
+          [In] IStorage pStg,
+          [In] ref Guid riid,
           [In] IOleClientSite pClientSite,
-          [Out] out IOleObject  ppvObj
+          [Out] out IOleObject ppvObj
             );
 
         [DllImport("ole32.dll")]
-        public static extern Ole.HRESULT OleDraw([MarshalAs(UnmanagedType.IUnknown)] object pUnk, uint dwAspect, HandleRef hdcDraw, ref Rectangle lprcBounds);
+        public static extern HRESULT OleDraw([MarshalAs(UnmanagedType.IUnknown)] object pUnk, uint dwAspect, HandleRef hdcDraw, ref Rectangle lprcBounds);
 
         [DllImport("ole32.dll")]
-        public static extern Ole.HRESULT OleInitialize(IntPtr rezerved);
+        public static extern HRESULT OleInitialize(IntPtr rezerved);
+
+        [DllImport("ole32.dll")]
+        public static extern int ProgIDFromCLSID([In] ref Guid clsid, [MarshalAs(UnmanagedType.LPWStr)] out string lplpszProgID);
 
 
+        [DllImport("ole32.dll")]
+        public static extern HRESULT OleSetContainedObject([In] IntPtr pUnknown, [MarshalAs(UnmanagedType.Bool)][In] bool fContained);
+
+        [DllImport("ole32.dll")]
+        public static extern HRESULT OleNoteObjectVisible([In] IntPtr pUnknown, [MarshalAs(UnmanagedType.Bool)] [In] bool fVisible);
 
 
         [Flags]
@@ -252,10 +260,6 @@ namespace Moxel
             STGM_DIRECT_SWMR = 0x400000,
             STGM_DELETEONRELEASE = 0x4000000
         }
-
-
-
-
 
         [ComVisible(false)]
         [ComImport, InterfaceType(ComInterfaceType.InterfaceIsIUnknown), Guid("0000000A-0000-0000-C000-000000000046")]
@@ -442,57 +446,4 @@ namespace Moxel
         }
     }
 
-    public class Helper
-    {
-        public static string ExportOleFile(string inputFileName, string oleOutputFileName, string emfOutputFileName)
-        {
-            StringBuilder resultString = new StringBuilder();
-            try
-            {
-                OLE32.CoUninitialize();
-                OLE32.CoInitializeEx(IntPtr.Zero, OLE32.CoInit.ApartmentThreaded); //COINIT_APARTMENTTHREADED
-
-                OLE32.IStorage storage;
-                var result = OLE32.StgCreateStorageEx(oleOutputFileName,
-                    Convert.ToInt32(OLE32.STGM.STGM_READWRITE | OLE32.STGM.STGM_SHARE_EXCLUSIVE | OLE32.STGM.STGM_CREATE | OLE32.STGM.STGM_TRANSACTED),
-                    Convert.ToInt32(OLE32.STGFMT.STGFMT_DOCFILE),
-                    0,
-                    IntPtr.Zero,
-                    IntPtr.Zero,
-                    ref OLE32.IID_IStorage,
-                    out storage
-                );
-
-                if (result != 0) result.ToString("X");
-
-                var CLSID_NULL = Guid.Empty;
-
-                OLE32.IOleObject pOle;
-                result = OLE32.OleCreateFromFile(
-                    ref CLSID_NULL,
-                    inputFileName,
-                    ref OLE32.IID_IDataObject,
-                    (uint)OLE32.OLERENDER.OLERENDER_NONE,
-                    IntPtr.Zero,
-                    null,
-                    storage,
-                    out pOle
-                );
-
-                if (result != 0) return result.ToString("X");
-
-
-
-                result = (int)OLE32.OleRun(pOle);
-                
-
-            }
-            catch (Exception ex)
-            {
-                resultString.AppendLine(ex.ToString());
-                return resultString.ToString();
-            }
-            return resultString.ToString();
-        }
-    }
 }

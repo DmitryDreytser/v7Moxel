@@ -13,7 +13,7 @@ namespace Moxel
         public class RequireStruct<T> where T : struct { }
         public class RequireClass<T> where T : class { }
 
-        public static T Read<T>(this BinaryReader br, RequireStruct<T> ignore = null) where T : struct
+        public static T Read<T>(this BinaryReader br, object parent = null, RequireStruct<T> ignore = null) where T : struct
         {
             var Length = Marshal.SizeOf(typeof(T));
 
@@ -35,12 +35,15 @@ namespace Moxel
             }
         }
 
-        public static T Read<T>(this BinaryReader br, RequireClass<T> ignore = null) where T : class
+        public static T Read<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class
         {
-            return (T)Activator.CreateInstance(typeof(T), br);
+            if(parent == null)
+                return (T)Activator.CreateInstance(typeof(T), br);
+            else
+                return (T)Activator.CreateInstance(typeof(T), br, parent);
         }
 
-        public static Dictionary<int, T> ReadDictionary<T>(this BinaryReader br, RequireStruct<T> ignore = null) where T : struct
+        public static Dictionary<int, T> ReadDictionary<T>(this BinaryReader br, object parent = null,RequireStruct<T> ignore = null) where T : struct
         {
             Dictionary<int, T> result = new Dictionary<int, T>();
             int[] numbers = br.ReadIntArray();
@@ -52,37 +55,46 @@ namespace Moxel
             return result;
         }
 
-        public static Dictionary<int, T> ReadDictionary<T>(this BinaryReader br, RequireClass<T> ignore = null) where T : class
+        public static Dictionary<int, T> ReadDictionary<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class
         {
             Dictionary<int, T> result = new Dictionary<int, T>();
             int[] numbers = br.ReadIntArray();
             int length = br.ReadCount();
             foreach (int num in numbers)
             {
-                result.Add(num, br.Read<T>());
+                if (parent == null)
+                    result.Add(num, br.Read<T>());
+                else
+                    result.Add(num, br.Read<T>(parent));
             }
 
             return result;
         }
 
-        public static List<T> ReadList<T>(this BinaryReader br, RequireStruct<T> ignore = null) where T : struct
+        public static List<T> ReadList<T>(this BinaryReader br, object parent = null, RequireStruct<T> ignore = null) where T : struct
         {
             List<T> result = new List<T>();
             int length = br.ReadCount();
             for (int num = 0; num < length; num++)
             {
-                result.Add(br.Read<T>());
+                if(parent == null)
+                    result.Add(br.Read<T>());
+                else
+                    result.Add(br.Read<T>(parent));
             }
             return result;
         }
 
-        public static List<T> ReadList<T>(this BinaryReader br, RequireClass<T> ignore = null) where T : class
+        public static List<T> ReadList<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class
         {
             List<T> result = new List<T>();
             int length = br.ReadCount();
             for (int num = 0; num < length; num++)
             {
-                result.Add(br.Read<T>());
+                if (parent == null)
+                    result.Add(br.Read<T>());
+                else
+                    result.Add(br.Read<T>(parent));
             }
             return result;
         }
