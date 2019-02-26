@@ -478,6 +478,9 @@ namespace Moxel
                     case ObjectType.Text:
                         result.AppendLine($"<p>{obj.Format.Text.Replace("\r\n", "<br>")}</p>");
                         break;
+                    case ObjectType.Line:
+                        result.AppendLine();
+                        break;
                     default:
                         break;
                 }
@@ -840,6 +843,7 @@ namespace Moxel
             public string ProgID;
             public Guid ClsId;
             public int dwItemNumber = 0;
+            public int dwZorder = 0;
 
             public EmbeddedObject()
             { }
@@ -1077,7 +1081,7 @@ namespace Moxel
 
             private Image LoadPicture(Picture picture, BinaryReader br)
             {
-                br.ReadUInt32();
+                uint xz = br.ReadUInt32();
                 int PictureSize = br.ReadInt32();
                 byte[] pictureBuffer = br.ReadBytes(PictureSize);
 
