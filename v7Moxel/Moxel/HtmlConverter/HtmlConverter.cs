@@ -329,7 +329,7 @@ namespace Moxel
                     columnnumber += Union.ColumnSpan;
                 }
 
-                if (Row.FormatCell.dwFlags.HasFlag(MoxelCellFlags.RowHeight))
+                if (Row != null && Row.FormatCell.dwFlags.HasFlag(MoxelCellFlags.RowHeight))
                 {
                     RowStyle.Set("height", $"{Row.FormatCell.wHeight / 3}px");
                 }
@@ -395,12 +395,11 @@ namespace Moxel
                     {
                         Color borderColor = FormatCell.BorderColor;
                         PictureStyle.Set("border-color", $"rgb({borderColor.R},{borderColor.G},{borderColor.B})");
-
-                        Color bgColor = FormatCell.BgColor;
-                        if (bgColor != Color.Empty)
-                            PictureStyle.Set("background-color", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
-
                     }
+
+                    Color bgColor = FormatCell.BgColor;
+                    if (bgColor != Color.Empty)
+                        PictureStyle.Set("background-color", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
 
                 }
 

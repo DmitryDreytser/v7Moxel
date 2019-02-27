@@ -156,6 +156,16 @@ namespace Moxel
         const short BMPSignature = 0x4D42; // "BM"
         const uint WMFSignature = 0x9AC6CDD7; // placeable WMF
 
+        public Moxel(string FileName)
+        {
+            Load(FileName);
+        }
+
+        public Moxel(byte[] buf)
+        {
+            Load(buf);
+        }
+
         public void Load(string FileName) 
         {
             Load(File.ReadAllBytes(FileName));

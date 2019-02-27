@@ -25,11 +25,9 @@ namespace v7Moxel
             if (dd.ShowDialog() != System.Windows.Forms.DialogResult.OK)
                 return;
             string mdfilename = dd.FileName;
-            byte[] buffer = File.ReadAllBytes(mdfilename);
-
-            Moxel.Moxel mxl = new Moxel.Moxel();
-            mxl.Load(buffer);
-            Moxel.HtmlConverter.SaveToHtml(mxl, mdfilename + ".html");
+            Moxel.Moxel mxl = new Moxel.Moxel(mdfilename);
+           // Moxel.HtmlConverter.SaveToHtml(mxl, mdfilename + ".html");
+            Moxel.ExcelWriter.SaveToExcel(mxl, mdfilename + ".xlsx");
         }
     }
 }
