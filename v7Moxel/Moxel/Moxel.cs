@@ -36,7 +36,7 @@ namespace Moxel
         DataCell TopColon;
         DataCell BottomColon;
 
-        Dictionary<int, Cellv6> Columns;
+        Dictionary<int, DataCell> Columns;
         Dictionary<int, MoxelRow> Rows;
         List<EmbeddedObject> Objects;
         List<CellsUnion> Unions;
@@ -108,8 +108,8 @@ namespace Moxel
                 result = DefFormat.wWidth;
 
             if(Columns.ContainsKey(ColNumber))
-                if(Columns[ColNumber].dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
-                    result = Columns[ColNumber].wWidth;
+                if(Columns[ColNumber].FormatCell.dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
+                    result = Columns[ColNumber].FormatCell.wWidth;
 
             if (result == 0)
                 result = 40;
@@ -194,6 +194,10 @@ namespace Moxel
 
                 if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontWeight))
                     CellStyle.Set("font-weight", FormatCell.bFontBold.ToString());
+
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontItalic))
+                    if(FormatCell.bFontItalic)
+                        CellStyle.Set("font-style", "italic");
 
                 if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontColor))
                 {
@@ -346,6 +350,8 @@ namespace Moxel
                         {
                             Text = Row.Cells[columnnumber].Text;
                             FormatCell = Row.Cells[columnnumber].FormatCell;
+                            if(Row.Cells[columnnumber].TextOrientation != 0)
+                            CellStyle.Set("transform",$"rotate(-{Row.Cells[columnnumber].TextOrientation}deg)");
                         }
                     }
                     string FontFamily = DefFontNAme;
@@ -429,7 +435,20 @@ namespace Moxel
             foreach(EmbeddedObject obj in Objects)
             {
                 CSSstyle PictureStyle = new CSSstyle();
-                FormatCell = obj.Format.FormatCell;
+                CSSstyle TextStyle = new CSSstyle();
+                Rectangle DrawingArea = obj.AbsoluteImageArea;
+
+                FormatCell = obj.Format;
+
+                int BorderWith = (int)FormatCell.bPictureBorderWidth * 2 + 1;
+
+
+                PictureStyle.Add("top", $"{DrawingArea.Top - BorderWith}px");
+                PictureStyle.Add("left", $"{DrawingArea.Left - BorderWith}px");
+
+                PictureStyle.Add("width", $"{DrawingArea.Width - BorderWith}px");
+                PictureStyle.Add("height", $"{DrawingArea.Height - BorderWith}px");
+
                 if (obj.Picture.dwType != ObjectType.Line)
                 {
                     if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
@@ -481,11 +500,17 @@ namespace Moxel
                         }
                     }
 
-                    FillFormat(obj.Format.FormatCell, ref PictureStyle, ref obj.Format.Text);
+                    FillFormat(obj.Format, ref TextStyle, ref obj.Format.Text);
+                    TextStyle.Set("max-width", $"{DrawingArea.Width}px");
+                    TextStyle.Set("width", $"{DrawingArea.Width}px");
+                    TextStyle.Set("line-height", "1.57");
+                    if (obj.Format.TextOrientation != 0)
+                        TextStyle.Set("transform", $"rotate(-{obj.Format.TextOrientation}deg)");
                 }
 
-                Rectangle DrawingArea = obj.AbsoluteImageArea;
+                
                 PictureStyle.Add("position", "absolute");
+                PictureStyle.Add("overflow", "hidden");
 
                 if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV))
                 {
@@ -496,14 +521,12 @@ namespace Moxel
                         PictureStyle.Add("align-items", "center");
                     }
                 }
+
                 CSSstyle LineStyle = new CSSstyle();
                 LineStyle.Set("stroke", "#000000");
                 FillLineStyle(FormatCell, ref LineStyle);
-                int BorderWith = (int)FormatCell.bPictureBorderWidth * 2 + 1;
 
 
-                PictureStyle.Add("top", $"{DrawingArea.Top - BorderWith}px");
-                PictureStyle.Add("left", $"{DrawingArea.Left - BorderWith}px");
 
                 result.Append($"\t\t<div id=\"D{obj.Picture.dwZOrder}\"{PictureStyle}>\r\n");
                 string DataUri = string.Empty;
@@ -519,7 +542,7 @@ namespace Moxel
                             }
                         break;
                     case ObjectType.Text:
-                        result.AppendLine($"<p>{obj.Format.Text.Replace("\r\n", "<br>")}</p>");
+                        result.AppendLine($"<span{TextStyle}>{obj.Format.Text.Replace("\r\n", "<br>")}</span>");
                         break;
                     case ObjectType.Line:
                         result.AppendLine($"<svg baseProfile=\"full\" xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" height = \"{Math.Max(DrawingArea.Height,10)}px\"  width = \"{Math.Max(DrawingArea.Width,10)}px\" text-rendering=\"geometricPrecision\">");
@@ -883,18 +906,27 @@ namespace Moxel
                 bXZ1 = 0
             };
         }
+
         public class DataCell
         {
             public Cellv6 FormatCell;
             public string Text;
             public string Value;
             public byte[] Data;
+            public short TextOrientation = 0;
+            Moxel Parent;
 
             public DataCell()
             { }
-            public DataCell(BinaryReader br)
+            public DataCell(BinaryReader br, Moxel parent = null)
             {
+                Parent = parent;
                 FormatCell = br.Read<Cellv6>();
+
+                if (Parent != null)
+                    if (Parent.Version == 7)
+                        TextOrientation = br.ReadInt16();
+
                 if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Text))
                 {
                     Text = br.ReadCString();
@@ -909,6 +941,11 @@ namespace Moxel
                 {
                     Data = br.ReadBytes(br.ReadCount());
                 }
+            }
+
+            public static implicit operator Cellv6(DataCell dc)
+            {
+                return dc.FormatCell;
             }
 
         }
@@ -973,6 +1010,7 @@ namespace Moxel
                     return new Rectangle { X = left, Y = top, Width = right - left, Height = bottom - top};
                 }
             }
+
             Moxel Parent = null;
             public DataCell Format;
             public Picture Picture;
@@ -987,7 +1025,7 @@ namespace Moxel
             public EmbeddedObject(BinaryReader br, Moxel parent)
             {
                 Parent = parent;
-                Format = br.Read<DataCell>();
+                Format = br.Read<DataCell>(parent);
                 Picture = br.Read<Picture>();
                 switch (Picture.dwType)
                 {
@@ -1167,8 +1205,8 @@ namespace Moxel
             public MoxelRow(BinaryReader br, Moxel parent)
             {
                 Parent = parent;
-                FormatCell = br.Read<Cellv6>();
-                Cells = br.ReadDictionary<DataCell>();
+                FormatCell = br.Read<DataCell>(parent);
+                Cells = br.ReadDictionary<DataCell>(parent);
             }
 
         }
@@ -1299,7 +1337,7 @@ namespace Moxel
             nAllRowCount = br.ReadInt32();
             //Всего объектов
             nAllObjectsCount = br.ReadInt32();
-            DefFormat = br.Read<Cellv6>();
+            DefFormat = br.Read<DataCell>(this);
             FontList = br.ReadDictionary<LOGFONT>();
 
             int[] strnums = br.ReadIntArray();
@@ -1307,10 +1345,10 @@ namespace Moxel
             foreach (int num in strnums)
                 stringTable.Add(num, br.ReadCString());
 
-            TopColon = br.Read<DataCell>();
-            BottomColon = br.Read<DataCell>();
+            TopColon = br.Read<DataCell>(this);
+            BottomColon = br.Read<DataCell>(this);
 
-            Columns = br.ReadDictionary<Cellv6>();
+            Columns = br.ReadDictionary<DataCell>(this);
             Rows = br.ReadDictionary<MoxelRow>(this);
             Objects = br.ReadList<EmbeddedObject>(this);
             Unions = br.ReadList<CellsUnion>();
