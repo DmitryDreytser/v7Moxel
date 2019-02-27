@@ -57,8 +57,16 @@
     <Compile Include="Moxel\1CInterfaces\ILanguageExtender.cs" />
     <Compile Include="Moxel\1CInterfaces\IStatusLine .cs" />
     <Compile Include="Moxel\BinaryReaderExtention.cs" />
+    <Compile Include="Moxel\Cell.cs" />
+    <Compile Include="Moxel\CellsUnion.cs" />
+    <Compile Include="Moxel\DataCell.cs" />
+    <Compile Include="Moxel\EmbeddedObject.cs" />
+    <Compile Include="Moxel\Enums.cs" />
     <Compile Include="Moxel\HtmlConverter.cs" />
+    <Compile Include="Moxel\LOGFONT.cs" />
     <Compile Include="Moxel\Moxel.cs" />
+    <Compile Include="Moxel\MoxelArea.cs" />
+    <Compile Include="Moxel\MoxelRow.cs" />
     <Compile Include="Moxel\NativeMethods.cs" />
     <Compile Include="Moxel\OLE32.cs" />
     <Compile Include="Moxel\OLEIntrfaces\HRESULT.cs" />
@@ -88,6 +96,8 @@
     <Compile Include="Moxel\OLEIntrfaces\OleVerbs.cs" />
     <Compile Include="Moxel\OLEIntrfaces\RECT.cs" />
     <Compile Include="Moxel\OLEIntrfaces\tagSIZEL.cs" />
+    <Compile Include="Moxel\Picture.cs" />
+    <Compile Include="Moxel\Section.cs" />
     <Compile Include="Moxel\_BMP_1c.cs" />
     <Compile Include="Program.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />

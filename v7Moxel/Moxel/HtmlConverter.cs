@@ -312,11 +312,11 @@ namespace Moxel
                     {
                         //if (Row.Height == 0)
                         {
-                            Size Constr = new Size { Width = (int)Math.Round((moxel.GetWidth(columnnumber, columnnumber + Union.ColumnSpan) + moxel.GetColumnWidth(columnnumber)) * 0.875 + 10), Height = 0 };
+                            Size Constr = new Size { Width = (int)Math.Round((moxel.GetWidth(columnnumber, columnnumber + Union.ColumnSpan) + moxel.GetColumnWidth(columnnumber)) * 0.875), Height = 0 };
                             Size textsize = System.Windows.Forms.TextRenderer.MeasureText(Text.TrimStart(' '), new Font(FontFamily, FontSize, FormatCell.bFontBold == clFontWeight.Bold ? FontStyle.Bold : FontStyle.Regular), Constr, System.Windows.Forms.TextFormatFlags.WordBreak);
                             textsize.Height /= Union.RowSpan + 1;
 
-                            Row.Height = Math.Max((short)(Math.Max(textsize.Height + 0.7, 15) * 3), Row.Height);
+                            Row.Height = Math.Max((short)(Math.Max(textsize.Height, 15) * 3), Row.Height);
                         }
                     }
 
