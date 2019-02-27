@@ -57,6 +57,7 @@
     <Compile Include="Moxel\1CInterfaces\ILanguageExtender.cs" />
     <Compile Include="Moxel\1CInterfaces\IStatusLine .cs" />
     <Compile Include="Moxel\BinaryReaderExtention.cs" />
+    <Compile Include="Moxel\HtmlConverter.cs" />
     <Compile Include="Moxel\Moxel.cs" />
     <Compile Include="Moxel\NativeMethods.cs" />
     <Compile Include="Moxel\OLE32.cs" />

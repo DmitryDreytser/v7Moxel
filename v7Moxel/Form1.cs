@@ -29,7 +29,7 @@ namespace v7Moxel
 
             Moxel.Moxel mxl = new Moxel.Moxel();
             mxl.Load(buffer);
-            mxl.SaveToHtml(mdfilename + ".html");
+            Moxel.HtmlConverter.SaveToHtml(mxl, mdfilename + ".html");
         }
     }
 }
