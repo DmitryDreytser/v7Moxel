@@ -21,7 +21,7 @@ namespace Moxel
             {
                 if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.RowHeight))
                     if (FormatCell.wHeight == 0)
-                        return 45;
+                        return 0;
                     else
                         return FormatCell.wHeight;
                 else

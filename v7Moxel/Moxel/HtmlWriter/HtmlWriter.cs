@@ -8,7 +8,7 @@ using System.IO;
 
 namespace Moxel
 {
-    class HtmlConverter
+    class HtmlWriter
     {
         public class CSSstyle : Dictionary<string, string>
         {

@@ -88,7 +88,7 @@
     <Compile Include="Moxel\Moxel\DataCell.cs" />
     <Compile Include="Moxel\Moxel\EmbeddedObject.cs" />
     <Compile Include="Moxel\Moxel\Enums.cs" />
-    <Compile Include="Moxel\HtmlConverter\HtmlConverter.cs" />
+    <Compile Include="Moxel\HtmlWriter\HtmlWriter.cs" />
     <Compile Include="Moxel\Moxel\LOGFONT.cs" />
     <Compile Include="Moxel\Moxel\Moxel.cs" />
     <Compile Include="Moxel\Moxel\MoxelArea.cs" />

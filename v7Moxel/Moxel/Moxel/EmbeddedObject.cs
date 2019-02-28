@@ -42,7 +42,7 @@ namespace Moxel
             }
         }
         public Picture Picture;
-        public object pObject;
+        public Bitmap pObject;
         public object OleObject;
         public string ProgID;
         public Guid ClsId;
@@ -66,7 +66,7 @@ namespace Moxel
             }
         }
 
-        object LoadOleObject(BinaryReader br)
+        Bitmap LoadOleObject(BinaryReader br)
         {
             string classname = string.Empty;
             short wClassNameFlag = br.ReadInt16();
@@ -173,7 +173,7 @@ namespace Moxel
             return m;
         }
 
-        private Image LoadPicture(BinaryReader br)
+        private Bitmap LoadPicture(BinaryReader br)
         {
             uint xz = br.ReadUInt32();
             int PictureSize = br.ReadInt32();
