@@ -56,7 +56,7 @@ namespace Moxel
             }
         }
 
-        public static bool SaveToExcel(Moxel moxel, string filename, int formatVersion = 7)
+        public static bool Save(Moxel moxel, string filename, int formatVersion = 7)
         {
             using (var workbook = new XLWorkbook(XLEventTracking.Disabled))
             {

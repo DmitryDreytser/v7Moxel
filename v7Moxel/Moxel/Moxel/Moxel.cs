@@ -168,47 +168,67 @@ namespace Moxel
 
         public void Load(string FileName) 
         {
-            Load(File.ReadAllBytes(FileName));
+            if(new  FileInfo(FileName).Length <= 1024 )
+                Load(File.ReadAllBytes(FileName));
+            else
+            {
+                using (var fs = new FileStream(FileName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                {
+                    Load(fs);
+                }
+            }
         }
 
         public void Load(byte[] buf)
         {
             using (var ms = new MemoryStream(buf))
             {
-                using (var br = new BinaryReader(ms))
-                {
-                    stringTable = new Dictionary<int, string>();
-                    br.BaseStream.Seek(0xb, SeekOrigin.Begin);
-                    Version = br.ReadInt16();
-                    
-                    nAllColumnCount = br.ReadInt32();
-                    //Всего строк
-                    nAllRowCount = br.ReadInt32();
-                    //Всего объектов
-                    nAllObjectsCount = br.ReadInt32();
-                    DefFormat = br.Read<DataCell>(this);
-                    FontList = br.ReadDictionary<LOGFONT>();
-
-                    int[] strnums = br.ReadIntArray();
-                    int stlCount = br.ReadCount();
-                    foreach (int num in strnums)
-                        stringTable.Add(num, br.ReadCString());
-
-                    TopColon = br.Read<DataCell>(this);
-                    BottomColon = br.Read<DataCell>(this);
-
-                    Columns = br.ReadDictionary<DataCell>(this);
-                    Rows = br.ReadDictionary<MoxelRow>(this);
-                    Objects = br.ReadList<EmbeddedObject>(this);
-                    Unions = br.ReadList<CellsUnion>();
-                    VerticalSections = br.ReadList<Section>();
-                    HorisontalSections = br.ReadList<Section>();
-                    HorisontalPageBreaks = br.ReadIntArray();
-                    VerticalPageBreaks = br.ReadIntArray();
-                    AreaNames = br.ReadList<MoxelArea>();
-                }
+                Load(ms);
             }
         }
+
+        public void Load(Stream ms)
+        {
+            using (var br = new BinaryReader(ms))
+            {
+                Load(br);
+            }
+        }
+
+        public void Load(BinaryReader br)
+        {
+            stringTable = new Dictionary<int, string>();
+            br.BaseStream.Seek(0xb, SeekOrigin.Begin);
+            Version = br.ReadInt16();
+
+            nAllColumnCount = br.ReadInt32();
+            //Всего строк
+            nAllRowCount = br.ReadInt32();
+            //Всего объектов
+            nAllObjectsCount = br.ReadInt32();
+            DefFormat = br.Read<DataCell>(this);
+            FontList = br.ReadDictionary<LOGFONT>();
+
+            int[] strnums = br.ReadIntArray();
+            int stlCount = br.ReadCount();
+            foreach (int num in strnums)
+                stringTable.Add(num, br.ReadCString());
+
+            TopColon = br.Read<DataCell>(this);
+            BottomColon = br.Read<DataCell>(this);
+
+            Columns = br.ReadDictionary<DataCell>(this);
+            Rows = br.ReadDictionary<MoxelRow>(this);
+            Objects = br.ReadList<EmbeddedObject>(this);
+            Unions = br.ReadList<CellsUnion>();
+            VerticalSections = br.ReadList<Section>();
+            HorisontalSections = br.ReadList<Section>();
+            HorisontalPageBreaks = br.ReadIntArray();
+            VerticalPageBreaks = br.ReadIntArray();
+            AreaNames = br.ReadList<MoxelArea>();
+        }
+
+
 
     }
 }

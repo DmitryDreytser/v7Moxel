@@ -26,8 +26,10 @@ namespace v7Moxel
                 return;
             string mdfilename = dd.FileName;
             Moxel.Moxel mxl = new Moxel.Moxel(mdfilename);
-           // Moxel.HtmlConverter.SaveToHtml(mxl, mdfilename + ".html");
-            Moxel.ExcelWriter.SaveToExcel(mxl, mdfilename + ".xlsx");
+            Moxel.ExcelWriter.Save(mxl, mdfilename + ".xlsx");
+            //Moxel.PDFWriter.Save(mxl, mdfilename + ".pdf");
+            //Moxel.HtmlWriter.Save(mxl, mdfilename + ".html");
+            
         }
     }
 }

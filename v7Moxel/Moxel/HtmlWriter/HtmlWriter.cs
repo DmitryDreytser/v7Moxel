@@ -229,7 +229,13 @@ namespace Moxel
             return result.ToString();
         }
 
-        public static bool SaveToHtml(Moxel moxel, string filename)
+        public static bool Save(Moxel moxel, string filename)
+        {
+            File.WriteAllText(filename, RenderToHtml(moxel).ToString(), Encoding.UTF8);
+            return File.Exists(filename);
+        }
+
+        public static StringBuilder RenderToHtml(Moxel moxel)
         {
             Cellv6 FormatCell = moxel.DefFormat;
             string DefFontName = string.Empty;
@@ -485,8 +491,7 @@ namespace Moxel
 
             result.Append("\t</body>\r\n");
             result.Append("</html>");
-            File.WriteAllText(filename, result.ToString(), Encoding.UTF8);
-            return true;
+            return result;
         }
     }
 }
