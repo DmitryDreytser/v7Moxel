@@ -1,0 +1,155 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" DefaultTargets="Build" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{D49ACF93-3E82-4DE4-9117-1C940CD7F2C1}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <NoStandardLibraries>false</NoStandardLibraries>
+    <AssemblyName>pdfjet</AssemblyName>
+    <TargetFrameworkVersion>v4.0</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <ErrorReport>prompt</ErrorReport>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+  <PropertyGroup>
+    <RootNamespace>pdfjet</RootNamespace>
+  </PropertyGroup>
+  <ItemGroup>
+    <Reference Include="Microsoft.CSharp" />
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="System.Data" />
+    <Reference Include="System.Data.DataSetExtensions" />
+    <Reference Include="System.Xml" />
+    <Reference Include="System.Xml.Linq" />
+  </ItemGroup>
+  <ItemGroup>
+    <None Include=".Page.cs.swp" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="A3.cs" />
+    <Compile Include="A4.cs" />
+    <Compile Include="A5.cs" />
+    <Compile Include="Align.cs" />
+    <Compile Include="Annotation.cs" />
+    <Compile Include="B5.cs" />
+    <Compile Include="Bidi.cs" />
+    <Compile Include="BitBuffer.cs" />
+    <Compile Include="BMPImage.cs" />
+    <Compile Include="Bookmark.cs" />
+    <Compile Include="Border.cs" />
+    <Compile Include="Box.cs" />
+    <Compile Include="CalendarMonth.cs" />
+    <Compile Include="Cap.cs" />
+    <Compile Include="Cell.cs" />
+    <Compile Include="CheckBox.cs" />
+    <Compile Include="Chunk.cs" />
+    <Compile Include="ClockWise.cs" />
+    <Compile Include="CodePage.cs" />
+    <Compile Include="Color.cs" />
+    <Compile Include="Compliance.cs" />
+    <Compile Include="CompositeTextLine.cs" />
+    <Compile Include="Compressor.cs" />
+    <Compile Include="CoreFont.cs" />
+    <Compile Include="Courier.cs" />
+    <Compile Include="Courier_Bold.cs" />
+    <Compile Include="Courier_BoldOblique.cs" />
+    <Compile Include="Courier_Oblique.cs" />
+    <Compile Include="CRC32.cs" />
+    <Compile Include="Decompressor.cs" />
+    <Compile Include="DeflaterOutputStream.cs" />
+    <Compile Include="Destination.cs" />
+    <Compile Include="Dimension.cs" />
+    <Compile Include="Effect.cs" />
+    <Compile Include="Embed.cs" />
+    <Compile Include="EmbeddedFile.cs" />
+    <Compile Include="ErrorCorrectLevel.cs" />
+    <Compile Include="Executive.cs" />
+    <Compile Include="FastFont.cs" />
+    <Compile Include="FastFont2.cs" />
+    <Compile Include="Field.cs" />
+    <Compile Include="FileAttachment.cs" />
+    <Compile Include="Font.cs" />
+    <Compile Include="FontTable.cs" />
+    <Compile Include="Form.cs" />
+    <Compile Include="Glyph.cs" />
+    <Compile Include="GraphicsState.cs" />
+    <Compile Include="Helvetica.cs" />
+    <Compile Include="Helvetica_Bold.cs" />
+    <Compile Include="Helvetica_BoldOblique.cs" />
+    <Compile Include="Helvetica_Oblique.cs" />
+    <Compile Include="ICCBlackScaled.cs" />
+    <Compile Include="IDrawable.cs" />
+    <Compile Include="Image.cs" />
+    <Compile Include="ImageType.cs" />
+    <Compile Include="Join.cs" />
+    <Compile Include="JPGImage.cs" />
+    <Compile Include="Legal.cs" />
+    <Compile Include="Letter.cs" />
+    <Compile Include="Line.cs" />
+    <Compile Include="Mark.cs" />
+    <Compile Include="MaskPattern.cs" />
+    <Compile Include="NumberFormat.cs" />
+    <Compile Include="Operation.cs" />
+    <Compile Include="OptionalContentGroup.cs" />
+    <Compile Include="Page.cs" />
+    <Compile Include="PageLayout.cs" />
+    <Compile Include="PageMode.cs" />
+    <Compile Include="Paragraph.cs" />
+    <Compile Include="Path.cs" />
+    <Compile Include="PDF.cs" />
+    <Compile Include="PDFobj.cs" />
+    <Compile Include="PlainText.cs" />
+    <Compile Include="PNGImage.cs" />
+    <Compile Include="Point.cs" />
+    <Compile Include="Polynomial.cs" />
+    <Compile Include="QRCode.cs" />
+    <Compile Include="QRMath.cs" />
+    <Compile Include="QRUtil.cs" />
+    <Compile Include="RadioButton.cs" />
+    <Compile Include="Round.cs" />
+    <Compile Include="RSBlock.cs" />
+    <Compile Include="Salsa20.cs" />
+    <Compile Include="Segment.cs" />
+    <Compile Include="SimpleDateFormat.cs" />
+    <Compile Include="Single.cs" />
+    <Compile Include="Standard.cs" />
+    <Compile Include="StandardFont.cs" />
+    <Compile Include="State.cs" />
+    <Compile Include="StructElem.cs" />
+    <Compile Include="Symbol.cs" />
+    <Compile Include="Table.cs" />
+    <Compile Include="Tabloid.cs" />
+    <Compile Include="Text.cs" />
+    <Compile Include="TextBlock.cs" />
+    <Compile Include="TextBox.cs" />
+    <Compile Include="TextFrame.cs" />
+    <Compile Include="TextLine.cs" />
+    <Compile Include="Times_Bold.cs" />
+    <Compile Include="Times_BoldItalic.cs" />
+    <Compile Include="Times_Italic.cs" />
+    <Compile Include="Times_Roman.cs" />
+    <Compile Include="Title.cs" />
+    <Compile Include="ZapfDingbats.cs" />
+  </ItemGroup>
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSHARP.Targets" />
+  <ProjectExtensions>
+    <VisualStudio AllowExistingFolder="true" />
+  </ProjectExtensions>
+</Project>

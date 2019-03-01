@@ -4,6 +4,13 @@ using System.IO;
 
 namespace Moxel
 {
+    public enum SaveFormat
+    {
+        Excel,
+        Html,
+        PDF
+    }
+
     public partial class Moxel
     {
         const int UNITS_PER_INCH = 1440;
@@ -228,7 +235,21 @@ namespace Moxel
             AreaNames = br.ReadList<MoxelArea>();
         }
 
-
+        public bool SaveAs(string filename, SaveFormat format)
+        {
+            switch(format)
+            {
+                case SaveFormat.Excel:
+                    return ExcelWriter.Save(this, filename);
+                case SaveFormat.Html:
+                    return HtmlWriter.Save(this, filename);
+                case SaveFormat.PDF:
+                    return PDFWriter.Save(this, filename);
+                default:
+                    throw new System.Exception("Формат сохранения не поддерживается.");
+            }
+            
+        }
 
     }
 }

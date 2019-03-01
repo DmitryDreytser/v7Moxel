@@ -70,7 +70,7 @@ namespace Moxel
                 if (moxel.FontList.Count == 1)
                     defFontName = moxel.FontList.First().Value.lfFaceName;
 
-                var worksheet = workbook.Worksheets.Add("Лист 1");
+                var worksheet = workbook.Worksheets.Add("Лист1");
                 for (int columnNumber = 0; columnNumber < moxel.nAllColumnCount; columnNumber++)
                 {
                     double columnwidth = 40.0d;
@@ -239,6 +239,9 @@ namespace Moxel
 
                 foreach(EmbeddedObject obj in moxel.Objects)
                 {
+                    DocumentFormat.OpenXml.Vml.Shape sh = new DocumentFormat.OpenXml.Vml.Shape();
+                    
+                    
                     using (var ms = new MemoryStream())
                     {
                         obj.pObject.Save(ms, ImageFormat.Png);
