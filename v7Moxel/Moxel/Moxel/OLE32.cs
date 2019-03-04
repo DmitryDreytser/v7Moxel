@@ -1,5 +1,4 @@
-﻿using Ole;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Drawing;
 using System.Linq;
@@ -15,9 +14,9 @@ namespace Moxel
         [StructLayout(LayoutKind.Sequential)]
         public struct STGOPTIONS
         {
-            ushort usVersion;
-            ushort reserved;
-            ulong ulSectorSize;
+            public ushort usVersion;
+            public ushort reserved;
+            public ulong ulSectorSize;
             [MarshalAsAttribute(UnmanagedType.LPWStr)]
             public string pwcsTemplateFile;
         };
@@ -31,7 +30,7 @@ namespace Moxel
         }
 
 
-        internal enum CLIPFORMAT : int
+        internal enum CLIPFORMAT 
         {
             CF_TEXT = 1,
             CF_BITMAP = 2,
@@ -57,7 +56,7 @@ namespace Moxel
             CF_DSPENHMETAFILE = 0x8E,
         }
 
-        internal enum STGFMT : int
+        internal enum STGFMT 
         {
             STGFMT_STORAGE = 0,
             STGFMT_FILE = 3,
@@ -66,7 +65,7 @@ namespace Moxel
         }
 
         [Flags]
-        public enum STGM : int
+        public enum STGM 
         {
             STGM_READ = 0x0,
             STGM_WRITE = 0x1,
@@ -271,8 +270,31 @@ namespace Moxel
             void SetSize(long cb);
             void LockRegion(long libOffset, long cb, int dwLockType);
             void UnlockRegion(long libOffset, long cb, int dwLockType);
-            void Stat(out System.Runtime.InteropServices.STATSTG pstatstg, int grfStatFlag);
+            void Stat(out System.Runtime.InteropServices.ComTypes.STATSTG pstatstg, int grfStatFlag);
 
+        }
+
+        [ComConversionLoss]
+        // IOleClientSite
+        [ComImport(), Guid("00000118-0000-0000-C000-000000000046")]
+        [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+        public interface IOleClientSite
+        {
+            void SaveObject();
+
+            [return: MarshalAs(UnmanagedType.Interface)]
+            object GetMoniker(
+                [In, MarshalAs(UnmanagedType.U4)] int dwAssign,
+                [In, MarshalAs(UnmanagedType.U4)] int dwWhichMoniker);
+
+            [PreserveSig]
+            int GetContainer([Out] out IntPtr ppContainer);
+
+            void ShowObject();
+
+            void OnShowWindow([In, MarshalAs(UnmanagedType.Bool)] bool fShow);
+
+            void RequestNewObjectLayout();
         }
 
         [ComImport]
@@ -341,9 +363,9 @@ namespace Moxel
 
             void SetElementTimes(
                 /* [string][unique][in] */ string pwcsName,
-                /* [unique][in] */ System.Runtime.InteropServices.FILETIME pctime,
-                /* [unique][in] */ System.Runtime.InteropServices.FILETIME patime,
-                /* [unique][in] */ System.Runtime.InteropServices.FILETIME pmtime);
+                /* [unique][in] */ System.Runtime.InteropServices.ComTypes.FILETIME pctime,
+                /* [unique][in] */ System.Runtime.InteropServices.ComTypes.FILETIME patime,
+                /* [unique][in] */ System.Runtime.InteropServices.ComTypes.FILETIME pmtime);
 
             void SetClass(
                 /* [in] */ Guid clsid);
@@ -377,8 +399,8 @@ namespace Moxel
             void IsUpToDate();
             void GetUserClassID(uint pClsid);
             void GetUserType(uint dwFormOfType, uint pszUserType);
-            void SetExtent(uint dwDrawAspect, [In] ref Ole.tagSIZEL psizel);
-            void GetExtent(uint dwDrawAspect, [In] ref Ole.tagSIZEL psizel);
+            void SetExtent(uint dwDrawAspect, [In] ref Rectangle psizel);
+            void GetExtent(uint dwDrawAspect, [In] ref Rectangle psizel);
             void Advise(object pAdvSink, uint pdwConnection);
             void Unadvise(uint dwConnection);
             void EnumAdvise(ref object ppenumAdvise);
@@ -397,7 +419,7 @@ namespace Moxel
             Next(
             uint celt,
             [MarshalAs(UnmanagedType.LPArray), Out]
-    System.Runtime.InteropServices.STATSTG[] rgelt,
+    System.Runtime.InteropServices.ComTypes.STATSTG[] rgelt,
             out uint pceltFetched
             );
 
@@ -422,7 +444,7 @@ namespace Moxel
             void Revert();
             void LockRegion(long libOffset, long cb, uint dwLockType);
             void UnlockRegion(long libOffset, long cb, uint dwLockType);
-            void Stat(out System.Runtime.InteropServices.STATSTG pstatstg, uint grfStatFlag);
+            void Stat(out System.Runtime.InteropServices.ComTypes.STATSTG pstatstg, uint grfStatFlag);
             void Clone(out IStream ppstm);
         }
 

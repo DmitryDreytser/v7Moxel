@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Moxel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -29,9 +30,8 @@ namespace AddIn
         /// HRESULT RegisterExtensionAs([in,out]BSTR *bstrExtensionName);
         /// </prototype>
         /// </remarks>
-        void RegisterExtensionAs(
-          [MarshalAs(UnmanagedType.BStr)]
-    ref String extensionName);
+        [PreserveSig]
+        HRESULT RegisterExtensionAs( [MarshalAs(UnmanagedType.BStr)] ref String extensionName);
 
         /// <summary>
         /// Возвращается количество свойств
@@ -42,7 +42,8 @@ namespace AddIn
         /// HRESULT GetNProps([in,out]long *plProps);
         /// </prototype>
         /// </remarks>
-        void GetNProps(ref Int32 props);
+        [PreserveSig]
+        HRESULT GetNProps(ref Int32 props);
 
         /// <summary>
         /// Возвращает целочисленный идентификатор свойства, соответствующий 
@@ -55,10 +56,8 @@ namespace AddIn
         /// HRESULT FindProp([in]BSTR bstrPropName,[in,out]long *plPropNum);
         /// </prototype>
         /// </remarks>
-        void FindProp(
-          [MarshalAs(UnmanagedType.BStr)]
-    String propName,
-          ref Int32 propNum);
+        [PreserveSig]
+        HRESULT FindProp([MarshalAs(UnmanagedType.BStr)] String propName, ref Int32 propNum);
 
         /// <summary>
         /// Возвращает имя свойства, соответствующее 
@@ -72,11 +71,8 @@ namespace AddIn
         /// HRESULT GetPropName([in]long lPropNum,[in]long lPropAlias,[in,out]BSTR *pbstrPropName);
         /// </prototype>
         /// </remarks>
-        void GetPropName(
-          Int32 propNum,
-          Int32 propAlias,
-          [MarshalAs(UnmanagedType.BStr)]
-    ref String propName);
+        [PreserveSig]
+        HRESULT GetPropName(Int32 propNum, Int32 propAlias, [MarshalAs(UnmanagedType.BStr)] ref String propName);
 
         /// <summary>
         /// Возвращает значение свойства.
@@ -87,10 +83,8 @@ namespace AddIn
         /// <prototype>
         /// </prototype>
         /// </remarks>
-        void GetPropVal(
-          Int32 propNum,
-          [MarshalAs(UnmanagedType.Struct)]
-    ref object propVal);
+        [PreserveSig]
+        HRESULT GetPropVal(Int32 propNum,[MarshalAs(UnmanagedType.Struct)] ref object propVal);
 
         /// <summary>
         /// Устанавливает значение свойства.
@@ -102,10 +96,8 @@ namespace AddIn
         /// HRESULT SetPropVal([in]long lPropNum,[in]VARIANT *varPropVal);
         /// </prototype>
         /// </remarks>
-        void SetPropVal(
-          Int32 propNum,
-          [MarshalAs(UnmanagedType.Struct)]
-    ref object propVal);
+        [PreserveSig]
+        HRESULT SetPropVal(Int32 propNum,[MarshalAs(UnmanagedType.Struct)]  ref object propVal);
 
         /// <summary>
         /// Определяет, можно ли читать значение свойства
@@ -117,7 +109,8 @@ namespace AddIn
         /// HRESULT IsPropReadable([in]long lPropNum,[in,out]BOOL *pboolPropRead);
         /// </prototype>
         /// </remarks>
-        void IsPropReadable(Int32 propNum, ref bool propRead);
+        [PreserveSig]
+        HRESULT IsPropReadable(Int32 propNum, ref bool propRead);
 
         /// <summary>
         /// Определяет, можно ли изменять значение свойства
@@ -129,7 +122,8 @@ namespace AddIn
         /// HRESULT IsPropWritable([in]long lPropNum,[in,out]BOOL *pboolPropWrite);
         /// </prototype>
         /// </remarks>
-        void IsPropWritable(Int32 propNum, ref Boolean propWrite);
+        [PreserveSig]
+        HRESULT IsPropWritable(Int32 propNum, ref Boolean propWrite);
 
         /// <summary>
         /// Возвращает количество методов
@@ -141,7 +135,8 @@ namespace AddIn
         /// HRESULT GetNMethods([in,out]long *plMethods);
         /// </prototype>
         /// </remarks>
-        void GetNMethods(ref Int32 pMethods);
+        [PreserveSig]
+        HRESULT GetNMethods(ref Int32 pMethods);
 
         /// <summary>
         /// Возвращает идентификатор метода по его имени
@@ -153,10 +148,7 @@ namespace AddIn
         /// HRESULT FindMethod(BSTR bstrMethodName,[in,out]long *plMethodNum);
         /// </prototype>
         /// </remarks>
-        void FindMethod(
-          [MarshalAs(UnmanagedType.BStr)]
-    String methodName,
-          ref Int32 methodNum);
+        Int32 FindMethod([MarshalAs(UnmanagedType.BStr)] String methodName);
 
         /// <summary>
         /// Возвращает имя метода по его идентификатору
@@ -169,10 +161,8 @@ namespace AddIn
         /// HRESULT GetMethodName([in]long lMethodNum,[in]long lMethodAlias,[in,out]BSTR *pbstrMethodName);
         /// </prototype>
         /// </remarks>
-        void GetMethodName(Int32 methodNum,
-          Int32 methodAlias,
-          [MarshalAs(UnmanagedType.BStr)]
-    ref String methodName);
+        [PreserveSig]
+        HRESULT GetMethodName(Int32 methodNum, Int32 methodAlias, [MarshalAs(UnmanagedType.BStr)] ref String methodName);
 
         /// <summary>
         /// Возвращает количество параметров метода по его идентификатору
@@ -184,9 +174,11 @@ namespace AddIn
         /// HRESULT GetNParams([in]long lMethodNum, [in,out]long *plParams);
         /// </prototype>
         /// </remarks>
-        void GetNParams(Int32 methodNum, ref Int32 pParams);
+        [PreserveSig]
+        HRESULT GetNParams(Int32 methodNum, ref Int32 pParams);
 
-        void GetParamDefValue(
+        [PreserveSig]
+        HRESULT GetParamDefValue(
           Int32 methodNum,
           Int32 paramNum,
           [MarshalAs(UnmanagedType.Struct)]
@@ -202,7 +194,8 @@ namespace AddIn
         /// HRESULT HasRetVal([in]long lMethodNum,[in,out]BOOL *pboolRetValue);
         /// </prototype>
         /// </remarks>
-        void HasRetVal(Int32 methodNum, ref Boolean retValue);
+        [PreserveSig]
+        HRESULT HasRetVal(Int32 methodNum, ref Boolean retValue);
 
         /// <summary>
         /// Вызов метода как процедуры с использованием идентификатора
@@ -214,7 +207,8 @@ namespace AddIn
         /// HRESULT CallAsProc([in]long lMethodNum,[in] SAFEARRAY (VARIANT) *paParams);
         /// </prototype>
         /// </remarks>
-        void CallAsProc(
+        [PreserveSig]
+        HRESULT CallAsProc(
           Int32 methodNum,
           [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType=VarEnum.VT_VARIANT)]
     ref object[] pParams);
@@ -231,7 +225,8 @@ namespace AddIn
         ///         [in] SAFEARRAY (VARIANT) *paParams);
         /// </prototype>
         /// </remarks>
-        void CallAsFunc(
+        [PreserveSig]
+        HRESULT CallAsFunc(
           Int32 methodNum,
           [MarshalAs(UnmanagedType.Struct)]
     ref object retValue,

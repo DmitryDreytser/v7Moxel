@@ -1,7 +1,7 @@
 using System;
 using System.Linq;
 
-namespace Ole
+namespace Moxel
 
 {
     public enum HRESULT : uint

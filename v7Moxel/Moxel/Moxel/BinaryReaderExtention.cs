@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 
 namespace Moxel
 {
+    [ComVisible(false)]
     public static class BinaryReaderExtention
     {
         public class RequireStruct<T> where T : struct { }

@@ -1,4 +1,5 @@
-﻿using System;
+﻿using Moxel;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
@@ -16,20 +17,23 @@ namespace AddIn
         /// Инициализация компонента
         /// </summary>
         /// <param name="connection">reference to IDispatch</param>
-        void Init(
+        [PreserveSig]
+        HRESULT Init(
             [MarshalAs(UnmanagedType.IDispatch)]
             object connection);
 
         /// <summary>
         /// Вызывается перед уничтожением компонента
         /// </summary>
-        void Done();
+        [PreserveSig]
+        HRESULT Done();
 
         /// <summary>
         /// Возвращается инициализационная информация
         /// </summary>
         /// <param name="info">Component information</param>
-        void GetInfo(
+        [PreserveSig]
+        HRESULT GetInfo(
             [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType=VarEnum.VT_VARIANT)]
             ref object[] info);
     }

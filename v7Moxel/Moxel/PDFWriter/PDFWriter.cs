@@ -14,7 +14,9 @@ namespace Moxel
         public static bool Save(Moxel moxel, string filename, PdfPrintOptions options)
         {
             HtmlToPdf Renderer = new HtmlToPdf(options);
-            Renderer.RenderHtmlAsPdf(HtmlWriter.RenderToHtml(moxel).ToString()).SaveAs(filename);
+            string HTML = HtmlWriter.RenderToHtml(moxel).ToString();
+            Renderer.RenderHtmlAsPdf(HTML).SaveAs(filename);
+
             return File.Exists(filename);
         }
 

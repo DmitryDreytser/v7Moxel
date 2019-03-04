@@ -4,6 +4,7 @@ using System.IO;
 
 namespace Moxel
 {
+    [ComVisible(true)]
     public enum SaveFormat
     {
         Excel,
@@ -11,6 +12,7 @@ namespace Moxel
         PDF
     }
 
+    [ComVisible(false)]
     public partial class Moxel
     {
         const int UNITS_PER_INCH = 1440;

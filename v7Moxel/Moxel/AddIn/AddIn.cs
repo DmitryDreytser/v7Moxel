@@ -7,20 +7,31 @@ using System.Threading.Tasks;
 using AddIn;
 using System.Reflection;
 using System.Collections;
+using System.Windows.Forms;
+using Moxel;
+using System.ComponentModel;
+using System.IO;
+//using Moxel;
 
-namespace AddIn
+namespace Moxel
 {
-    public abstract class AddIn : IInitDone, ILanguageExtender
+    [ComVisible(false)]
+    internal interface IConverter
     {
-        /// <summary>ProgID COM-объекта компоненты</summary>
-        public string AddInName
-        {
-            get
-            {
-                return ((ProgIdAttribute)this.GetType().GetCustomAttribute(typeof(ProgIdAttribute), true)).Value;
-            }
+        void Attach(dynamic Table);
+        string Save(string filename, SaveFormat format);
+    }
 
-        }
+
+    [ComVisible(true), Guid("bc631c98-2f0b-49b9-b722-b7e223e46059")]
+    [ClassInterface(ClassInterfaceType.AutoDual)]
+    [Description("Конвертер MOXEL")]
+    [ProgId("AddIn.Moxel.Converter")]
+    public class Converter : IInitDone, ILanguageExtender, IConverter
+    {
+
+        /// <summary>ProgID COM-объекта компоненты</summary>
+        string AddInName = "Moxel.Converter";
 
         /// <summary>Указатель на IDispatch</summary>
         protected object connect1c;
@@ -30,6 +41,9 @@ namespace AddIn
 
         /// <summary>Статусная строка 1С</summary>
         protected IStatusLine statusLine;
+
+        /// <summary>Сообщения об ошибках 1С</summary>
+        protected IErrorLog errorLog;
 
         private Type[] allInterfaceTypes;  // Коллекция интерфейсов
         private MethodInfo[] allMethodInfo;  // Коллекция методов
@@ -44,127 +58,233 @@ namespace AddIn
         private Hashtable numberToMethodInfoIdx; // номер метода - индекс в массиве методов
         private Hashtable propertyNumberToPropertyInfoIdx; // номер свойства - индекс в массиве свойств
 
+        Moxel mxl;
+
+        protected void PostException(Exception ex)
+        {
+            if (errorLog == null)
+                return;
+
+            var info = new System.Runtime.InteropServices.ComTypes.EXCEPINFO
+            {
+                wCode = 1006,
+                bstrDescription = $"{AddInName}: ошибка {ex.GetType()} : {ex.Message} в  {ex.StackTrace}",
+                bstrSource = AddInName, 
+                scode = 1
+            };
+
+            errorLog.AddError("", ref info);
+        }
+
+
+        public void Attach(object Table)
+        {
+            string tempfile = Path.GetTempFileName() + ".mxl";
+            object[] pars = new object[] { tempfile, "mxl" };
+
+            var tt = Table.GetType().InvokeMember("Записать", BindingFlags.InvokeMethod, null, Table, pars);
+
+            while (Marshal.ReleaseComObject(Table) > 0) { } ;
+            Marshal.FinalReleaseComObject(Table);
+            
+            if (File.Exists(tempfile))
+                mxl = new Moxel(tempfile);
+
+            File.Delete(tempfile);
+
+
+        }
+
+        public string Save(string filename, SaveFormat format)
+        {
+            mxl.SaveAs(filename, format);
+            return filename;
+        }
+
+
         #region IInitDone
-        public void Init([MarshalAs(UnmanagedType.IDispatch)] object connection)
+        public HRESULT Init([MarshalAs(UnmanagedType.IDispatch)] object connection)
         {
             connect1c = connection;
             statusLine = (IStatusLine)connection;
             asyncEvent = (IAsyncEvent)connection;
+            errorLog = (IErrorLog)connection;
+            return HRESULT.S_OK;
         }
 
-        public void GetInfo([MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] info)
+        public HRESULT GetInfo([MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] info)
         {
             info[0] = 2000;
+            return HRESULT.S_OK;
         }
 
-        public void Done()
+        public HRESULT Done()
         {
+            
             if (connect1c != null)
             {
-                Marshal.ReleaseComObject(asyncEvent);
+                while (Marshal.ReleaseComObject(asyncEvent) > 0) { };
                 Marshal.FinalReleaseComObject(asyncEvent);
                 asyncEvent = null;
-                Marshal.ReleaseComObject(statusLine);
+
+                while (Marshal.ReleaseComObject(statusLine) > 0) { };
                 Marshal.FinalReleaseComObject(statusLine);
                 statusLine = null;
-                Marshal.ReleaseComObject(connect1c);
+
+                while (Marshal.ReleaseComObject(errorLog) > 0) { };
+                Marshal.FinalReleaseComObject(errorLog);
+                statusLine = null;
+
+                while (Marshal.ReleaseComObject(connect1c) > 0) { };
                 Marshal.FinalReleaseComObject(connect1c);
                 connect1c = null;
             }
+            Marshal.CleanupUnusedObjectsInCurrentContext();
+
+            mxl = null;
+
+            GC.Collect();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
+            return HRESULT.S_OK;
         }
         #endregion
 
 
 #region ILAnguageExtender
-        public void CallAsFunc(int methodNum, [MarshalAs(UnmanagedType.Struct)] ref object retValue, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] pParams)
+        public HRESULT CallAsFunc(int methodNum, [MarshalAs(UnmanagedType.Struct)] ref object retValue, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] pParams)
         {
             try
             {
                 retValue = allMethodInfo[(int)numberToMethodInfoIdx[methodNum]].Invoke(this, pParams);
+                
             }
             catch (Exception e)
             {
-                asyncEvent.ExternalEvent(AddInName, e.Message, e.ToString());
+                PostException(e);
             }
+            return HRESULT.S_OK;
         }
 
-        public void CallAsProc(int methodNum, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] pParams)
+        public HRESULT CallAsProc(int methodNum, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref dynamic[] pParams)
         {
             try
             {
                 allMethodInfo[(int)numberToMethodInfoIdx[methodNum]].Invoke(this, pParams);
+                
             }
             catch (Exception e)
             {
-                asyncEvent.ExternalEvent(AddInName, e.Message, e.ToString());
+                PostException(e);
             }
+            return HRESULT.S_OK;
         }
 
 
-        public void FindMethod([MarshalAs(UnmanagedType.BStr)] string methodName, ref int methodNum)
+        public Int32 FindMethod([MarshalAs(UnmanagedType.BStr)] string methodName)
         {
-            methodNum = (Int32)nameToNumber[methodName];
+            if (nameToNumber.ContainsKey(methodName))
+                return (Int32)nameToNumber[methodName];
+            else
+            return -1;
+            
         }
 
-        public void FindProp([MarshalAs(UnmanagedType.BStr)] string propName, ref int propNum)
+        public HRESULT FindProp([MarshalAs(UnmanagedType.BStr)] string propName, ref Int32 propNum)
         {
-            propNum = (Int32)propertyNameToNumber[propName];
+            if (propertyNameToNumber.ContainsKey(propName))
+            {
+                propNum = (Int32)propertyNameToNumber[propName];
+                return HRESULT.S_OK;
+            }
+
+            propNum = -1;
+            return HRESULT.S_FALSE;
         }
 
 
 
-        public void GetMethodName(int methodNum, int methodAlias, [MarshalAs(UnmanagedType.BStr)] ref string methodName)
+        public HRESULT GetMethodName(int methodNum, int methodAlias, [MarshalAs(UnmanagedType.BStr)] ref string methodName)
         {
-            methodName = (String)numberToName[methodNum];
+            if (numberToName.ContainsKey(methodNum))
+            {
+                methodName = (String)numberToName[methodNum];
+                return HRESULT.S_OK;
+            }
+            return HRESULT.S_FALSE;
+
         }
 
-        public void GetNMethods(ref int pMethods)
+        public HRESULT GetNMethods(ref Int32 pMethods)
         {
-            pMethods = (Int32)nameToNumber.Count;
+            pMethods = allMethodInfo.Length;
+            return HRESULT.S_OK;
         }
 
-        public void GetNParams(int methodNum, ref int pParams)
+        public HRESULT GetNParams(int methodNum, ref int pParams)
         {
-            pParams = (Int32)numberToParams[methodNum];
+            if (numberToParams.ContainsKey(methodNum))
+            {
+                pParams = (Int32)numberToParams[methodNum];
+                return HRESULT.S_OK;
+            }
+
+            pParams = -1;
+            return HRESULT.S_FALSE;
         }
 
-        public void GetNProps(ref int props)
+        public HRESULT GetNProps(ref int props)
         {
             props = (Int32)propertyNameToNumber.Count;
+            return HRESULT.S_OK;
         }
 
-        public void GetParamDefValue(int methodNum, int paramNum, [MarshalAs(UnmanagedType.Struct)] ref object paramDefValue)
+        public HRESULT GetParamDefValue(int methodNum, int paramNum, [MarshalAs(UnmanagedType.Struct)] ref object paramDefValue)
         {
-           
+            return HRESULT.S_OK;
         }
 
-        public void GetPropName(int propNum, int propAlias, [MarshalAs(UnmanagedType.BStr)] ref string propName)
+        public HRESULT GetPropName(int propNum, int propAlias, [MarshalAs(UnmanagedType.BStr)] ref string propName)
         {
-            propName = (String)propertyNumberToName[propNum];
+            if (propertyNumberToName.ContainsKey(propNum))
+            {
+                propName = (String)propertyNumberToName[propNum];
+                return HRESULT.S_OK;
+            }
+            return HRESULT.S_FALSE;
         }
 
-        public void GetPropVal(int propNum, [MarshalAs(UnmanagedType.Struct)] ref object propVal)
+        public HRESULT GetPropVal(int propNum, [MarshalAs(UnmanagedType.Struct)] ref object propVal)
         {
             propVal = allPropertyInfo[(int)propertyNumberToPropertyInfoIdx[propNum]].GetValue(this, null);
+            return HRESULT.S_OK;
         }
 
-        public void HasRetVal(int methodNum, ref bool retValue)
+        public HRESULT HasRetVal(int methodNum, ref bool retValue)
         {
-            retValue = (Boolean)numberToRetVal[methodNum];
+            if (numberToRetVal.ContainsKey(methodNum))
+            {
+                retValue = (bool)numberToRetVal[methodNum];
+                return HRESULT.S_OK;
+            }
+
+            return HRESULT.S_FALSE;
         }
 
 
-        public void IsPropReadable(int propNum, ref bool propRead)
+        public HRESULT IsPropReadable(int propNum, ref bool propRead)
         {
             propRead = allPropertyInfo[(int)propertyNumberToPropertyInfoIdx[propNum]].CanRead;
+            return HRESULT.S_OK;
         }
 
-        public void IsPropWritable(int propNum, ref bool propWrite)
+        public HRESULT IsPropWritable(int propNum, ref bool propWrite)
         {
             propWrite = allPropertyInfo[(int)propertyNumberToPropertyInfoIdx[propNum]].CanWrite;
+            return HRESULT.S_OK;
         }
 
-        public void RegisterExtensionAs([MarshalAs(UnmanagedType.BStr)] ref String extensionName)
+        public HRESULT RegisterExtensionAs([MarshalAs(UnmanagedType.BStr)] ref String extensionName)
         {
             try
             {
@@ -257,15 +377,19 @@ namespace AddIn
                 // Компонент инициализирован успешно. Возвращаем имя компонента.
                 extensionName = AddInName;
             }
-            catch (Exception)
+            catch (Exception e)
             {
-                return;
+                PostException(e);
             }
+
+            return HRESULT.S_OK;
+            
         }
 
-        public void SetPropVal(int propNum, [MarshalAs(UnmanagedType.Struct)] ref object propVal)
+        public HRESULT SetPropVal(int propNum, [MarshalAs(UnmanagedType.Struct)] ref object propVal)
         {
             allPropertyInfo[(int)propertyNumberToPropertyInfoIdx[propNum]].SetValue(this, propVal, null);
+            return HRESULT.S_OK;
         }
         #endregion
     }

@@ -97,7 +97,7 @@ namespace Moxel
             OLE32.CreateILockBytesOnHGlobal(hGlobal, false, out LockBytes);
             OLE32.IOleObject pOle = null;
 
-            Ole.HRESULT result = OLE32.StgOpenStorageOnILockBytes(LockBytes, null, OLE32.STGM.STGM_READWRITE | OLE32.STGM.STGM_SHARE_EXCLUSIVE, IntPtr.Zero, 0, out RootStorage);
+            HRESULT result = OLE32.StgOpenStorageOnILockBytes(LockBytes, null, OLE32.STGM.STGM_READWRITE | OLE32.STGM.STGM_SHARE_EXCLUSIVE, IntPtr.Zero, 0, out RootStorage);
 
             System.Runtime.InteropServices.ComTypes.STATSTG MetaDataInfo;
             RootStorage.Stat(out MetaDataInfo, 0);
@@ -106,9 +106,9 @@ namespace Moxel
 
             Guid IID_IUnknown = new Guid("00000000-0000-0000-C000-000000000046");
 
-            Ole.IOleClientSite ole_cs = null;
-            result = OLE32.OleLoad(RootStorage, ref IID_IUnknown, ole_cs, out pOle);
-            if (result != Ole.HRESULT.S_OK)
+            
+            result = OLE32.OleLoad(RootStorage, ref IID_IUnknown, null, out pOle);
+            if (result != HRESULT.S_OK)
             {
                 int res = Marshal.GetLastWin32Error();
                 return null;

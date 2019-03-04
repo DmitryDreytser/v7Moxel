@@ -117,15 +117,25 @@ namespace Moxel
             public FontQuality lfQuality;
             public FontPitchAndFamily lfPitchAndFamily;
             [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 32)]
-            public string lfFaceName;
+            string fFaceName;
 
             public override string ToString()
             {
                 StringBuilder sb = new StringBuilder();
                 sb.AppendFormat("lfCharSet: {0}\n", lfCharSet);
                 sb.AppendFormat("lfFaceName: {0}\n", lfFaceName);
-
                 return sb.ToString();
+            }
+
+            public string lfFaceName
+            {
+                get
+                {
+                    if (fFaceName == "Arial Narrow")
+                        return "Arial";
+                    return fFaceName;
+
+                }
             }
         }
     }
