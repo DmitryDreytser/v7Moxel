@@ -322,6 +322,14 @@ namespace Moxel
                             Size textsize = System.Windows.Forms.TextRenderer.MeasureText(Text.TrimStart(' '), new Font(FontFamily, FontSize, FormatCell.bFontBold == clFontWeight.Bold ? FontStyle.Bold : FontStyle.Regular), Constr, System.Windows.Forms.TextFormatFlags.WordBreak);
                             textsize.Height /= Union.RowSpan + 1;
 
+                            if (FormatCell.bControlContent == TextControl.Wrap && !Text.Contains("<br>"))
+                                if (textsize.Width > Constr.Width)
+                                {
+                                    int index = (textsize.Width - Constr.Width) / (textsize.Width / Text.Length);
+                                    if(index > 1)
+                                        Text = Text.Insert(Text.Length - index, "<br>");
+                                }
+
                             Row.Height = Math.Max((short)(Math.Max(textsize.Height, 15) * 3), Row.Height);
                         }
                     }

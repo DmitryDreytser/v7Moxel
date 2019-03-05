@@ -83,18 +83,15 @@ namespace Moxel
             File.Delete(tempfile);
             tempfile += ".mxl";
             object[] param = { tempfile, "mxl" };
+            var tt = Table.GetType().InvokeMember("Write", BindingFlags.InvokeMethod, null, Table, param);
 
-            var tt = Table.GetType().InvokeMember("Записать", BindingFlags.InvokeMethod, null, Table, param);
 
             while (Marshal.ReleaseComObject(Table) > 0) { } ;
             Marshal.FinalReleaseComObject(Table);
-            
+
             if (File.Exists(tempfile))
                 mxl = new Moxel(tempfile);
-
             File.Delete(tempfile);
-
-
         }
 
         public string Save(string filename, SaveFormat format)
@@ -163,6 +160,8 @@ namespace Moxel
             }
             catch (Exception e)
             {
+               // MessageBox.Show(e.ToString());
+
                 PostException(e.InnerException);
             }
             return HRESULT.S_OK;

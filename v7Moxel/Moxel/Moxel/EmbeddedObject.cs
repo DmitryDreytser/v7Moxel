@@ -86,7 +86,7 @@ namespace Moxel
 
             int dwObjectSize = br.ReadInt32();
             OleObjectStorage = br.ReadBytes(dwObjectSize);
-            File.WriteAllBytes($"F:\\OleObject{Picture.dwZOrder}.bin", OleObjectStorage);
+            //File.WriteAllBytes($"F:\\OleObject{Picture.dwZOrder}.bin", OleObjectStorage);
 
             OLE32.CoInitializeEx(IntPtr.Zero, OLE32.CoInit.ApartmentThreaded); //COINIT_APARTMENTTHREADED
             OLE32.ILockBytes LockBytes;
