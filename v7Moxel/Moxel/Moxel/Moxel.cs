@@ -177,8 +177,12 @@ namespace Moxel
 
         public void Load(string FileName) 
         {
-            if(new  FileInfo(FileName).Length <= 1024 )
-                Load(File.ReadAllBytes(FileName));
+            if (new FileInfo(FileName).Length <= 1024)
+            {
+                byte[] buffer = File.ReadAllBytes(FileName);
+                Load(buffer);
+                buffer = null;
+            }
             else
             {
                 using (var fs = new FileStream(FileName, FileMode.Open, FileAccess.Read, FileShare.Read))
@@ -235,6 +239,21 @@ namespace Moxel
             HorisontalPageBreaks = br.ReadIntArray();
             VerticalPageBreaks = br.ReadIntArray();
             AreaNames = br.ReadList<MoxelArea>();
+        }
+
+         ~Moxel()
+        {
+            stringTable = null;
+            FontList = null;
+            Columns = null;
+            Rows = null;
+            Objects = null;
+            Unions = null;
+            VerticalSections = null;
+            HorisontalSections = null;
+            HorisontalPageBreaks = null;
+            VerticalPageBreaks = null;
+            AreaNames = null;
         }
 
         public bool SaveAs(string filename, SaveFormat format)

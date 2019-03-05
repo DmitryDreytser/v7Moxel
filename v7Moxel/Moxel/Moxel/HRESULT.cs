@@ -1,9 +1,11 @@
 using System;
 using System.Linq;
+using System.Runtime.InteropServices;
 
 namespace Moxel
 
 {
+    [ComVisible(true)]
     public enum HRESULT : uint
     {
         S_OK = 0x00000000,

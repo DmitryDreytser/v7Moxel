@@ -68,7 +68,7 @@ namespace Moxel
             var info = new System.Runtime.InteropServices.ComTypes.EXCEPINFO
             {
                 wCode = 1006,
-                bstrDescription = $"{AddInName}: ошибка {ex.GetType()} : {ex.Message} в  {ex.StackTrace}",
+                bstrDescription = $"{AddInName}: ошибка {ex.GetType()} : {ex.Message}", //  {ex.StackTrace}
                 bstrSource = AddInName, 
                 scode = 1
             };
@@ -79,10 +79,12 @@ namespace Moxel
 
         public void Attach(object Table)
         {
-            string tempfile = Path.GetTempFileName() + ".mxl";
-            object[] pars = new object[] { tempfile, "mxl" };
+            string tempfile = Path.GetTempFileName();
+            File.Delete(tempfile);
+            tempfile += ".mxl";
+            object[] param = { tempfile, "mxl" };
 
-            var tt = Table.GetType().InvokeMember("Записать", BindingFlags.InvokeMethod, null, Table, pars);
+            var tt = Table.GetType().InvokeMember("Записать", BindingFlags.InvokeMethod, null, Table, param);
 
             while (Marshal.ReleaseComObject(Table) > 0) { } ;
             Marshal.FinalReleaseComObject(Table);
@@ -161,7 +163,7 @@ namespace Moxel
             }
             catch (Exception e)
             {
-                PostException(e);
+                PostException(e.InnerException);
             }
             return HRESULT.S_OK;
         }
@@ -175,7 +177,7 @@ namespace Moxel
             }
             catch (Exception e)
             {
-                PostException(e);
+                PostException(e.InnerException);
             }
             return HRESULT.S_OK;
         }

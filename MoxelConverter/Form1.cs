@@ -1,4 +1,5 @@
 ﻿using System;
+using System.IO;
 using System.Windows.Forms;
 
 namespace MoxelConverter
@@ -20,10 +21,13 @@ namespace MoxelConverter
             string mdfilename = dd.FileName;
             Moxel.Moxel mxl = new Moxel.Moxel(mdfilename);
 
-            mxl.SaveAs(mdfilename + ".html", Moxel.SaveFormat.Excel);
+            mxl.SaveAs(Path.ChangeExtension(mdfilename, "xlsx"), Moxel.SaveFormat.Excel);
+            
+            mxl.SaveAs(Path.ChangeExtension(mdfilename, "pdf"), Moxel.SaveFormat.PDF);
+            mxl.SaveAs(Path.ChangeExtension(mdfilename, "html"), Moxel.SaveFormat.Html);
 
             //Moxel.ExcelWriter.Save(mxl, mdfilename + ".xlsx");
-            //Moxel.PDFWriter.Save(mxl, mdfilename + ".pdf");
+            //Moxel.PDFWriter.Save(mxl, Path.ChangeExtension(mdfilename, "pdf"));
             //Moxel.HtmlWriter.Save(mxl, mdfilename + ".html");
             
         }

@@ -30,11 +30,15 @@ SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 using System;
 
 
-namespace PDFjet.NET {
-class FontTable {
-    internal String name;
-    internal long checkSum;
-    internal int offset;
-    internal int length;
-}
-}   // End of namespace PDFjet.NET
+namespace PDFjet.NET
+{
+    class FontTable
+    {
+#pragma warning disable CS0649
+        internal String name;
+        internal long checkSum;
+        internal int offset;
+        internal int length;
+#pragma warning restore CS0649
+    }
+}  // End of namespace PDFjet.NET
