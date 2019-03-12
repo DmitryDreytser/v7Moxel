@@ -148,7 +148,7 @@ namespace AddIn
         /// HRESULT FindMethod(BSTR bstrMethodName,[in,out]long *plMethodNum);
         /// </prototype>
         /// </remarks>
-        Int32 FindMethod([MarshalAs(UnmanagedType.BStr)] String methodName);
+        int FindMethod([MarshalAs(UnmanagedType.BStr)] String methodName);
 
         /// <summary>
         /// Возвращает имя метода по его идентификатору

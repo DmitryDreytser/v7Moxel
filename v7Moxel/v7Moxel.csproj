@@ -42,6 +42,7 @@
     <RegisterForComInterop>true</RegisterForComInterop>
     <LangVersion>6</LangVersion>
     <FileAlignment>512</FileAlignment>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject />
@@ -220,7 +221,6 @@
     <Content Include="ssleay32.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
     </Content>
-    <Content Include="v7Moxel.rc" />
     <Content Include="v7Moxel.res" />
     <Content Include="wkhtmltox0.dll">
       <CopyToOutputDirectory>Always</CopyToOutputDirectory>
@@ -230,5 +230,4 @@
   <PropertyGroup>
     <PostBuildEvent>rem $(ILMergeConsolePath) /out:Moxel.dll v7Moxel.dll FastMember.dll ExcelNumberFormat.dll DocumentFormat.OpenXml.dll</PostBuildEvent>
   </PropertyGroup>
-
 </Project>

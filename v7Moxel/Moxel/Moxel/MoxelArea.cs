@@ -1,9 +1,11 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 using System.Runtime.InteropServices;
 
 namespace Moxel
 {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+    [Serializable]
     public struct Area
     {
         public int Unknown1; // always 1
@@ -14,7 +16,7 @@ namespace Moxel
         public int ColumnEnd;
         public int RowEnd;
     };
-
+    [Serializable]
     public class MoxelArea
     {
         public string Name;

@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -14,26 +15,26 @@ namespace Moxel
         public class RequireStruct<T> where T : struct { }
         public class RequireClass<T> where T : class { }
 
+        /// <summary>
+        /// Быстрое чтение массива байт в структуру
+        /// </summary>
+        /// <typeparam name="T"></typeparam>
+        /// <param name="b"></param>
+        /// <returns></returns>
+        static unsafe T ByteArrayToStructure<T>(byte[] b) where T : struct
+        {
+            fixed (byte* pb = &b[0])
+                return (T)Marshal.PtrToStructure((IntPtr)pb, typeof(T));
+        }
+
         public static T Read<T>(this BinaryReader br, object parent = null, RequireStruct<T> ignore = null) where T : struct
         {
             var Length = Marshal.SizeOf(typeof(T));
 
             byte[] bytes = br.ReadBytes(Length);
+            
+            return ByteArrayToStructure<T>(bytes);
 
-            var ptr = Marshal.AllocHGlobal(bytes.Length);
-
-            try
-            {
-                Marshal.Copy(bytes, 0, ptr, bytes.Length);
-                //#pragma warning disable CS0618 // Type or member is obsolete
-                T result = (T)Marshal.PtrToStructure(ptr, typeof(T));
-                //#pragma warning restore CS0618 // Type or member is obsolete
-                return result;
-            }
-            finally
-            {
-                Marshal.FreeHGlobal(ptr);
-            }
         }
 
         public static T Read<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class
@@ -50,9 +51,9 @@ namespace Moxel
             int[] numbers = br.ReadIntArray();
             int length = br.ReadCount();
             foreach (int num in numbers)
-            {
                 result.Add(num, br.Read<T>());
-            }
+
+            numbers = null;
             return result;
         }
 
@@ -69,6 +70,7 @@ namespace Moxel
                     result.Add(num, br.Read<T>(parent));
             }
 
+            numbers = null;
             return result;
         }
 

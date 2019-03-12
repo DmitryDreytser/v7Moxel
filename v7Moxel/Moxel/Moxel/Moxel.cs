@@ -1,6 +1,8 @@
 ﻿using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.IO;
+using System;
+using System.Runtime.Serialization.Formatters.Binary;
 
 namespace Moxel
 {
@@ -9,10 +11,12 @@ namespace Moxel
     {
         Excel,
         Html,
-        PDF
+        PDF,
+        Moxel
     }
 
     [ComVisible(false)]
+    [Serializable]
     public partial class Moxel
     {
         const int UNITS_PER_INCH = 1440;
@@ -170,9 +174,9 @@ namespace Moxel
             Load(FileName);
         }
 
-        public Moxel(byte[] buf)
+        public Moxel(ref byte[] buf)
         {
-            Load(buf);
+            Load(ref buf);
         }
 
         public void Load(string FileName) 
@@ -180,7 +184,7 @@ namespace Moxel
             if (new FileInfo(FileName).Length <= 1024)
             {
                 byte[] buffer = File.ReadAllBytes(FileName);
-                Load(buffer);
+                Load(ref buffer);
                 buffer = null;
             }
             else
@@ -192,7 +196,7 @@ namespace Moxel
             }
         }
 
-        public void Load(byte[] buf)
+        public void Load(ref byte[] buf)
         {
             using (var ms = new MemoryStream(buf))
             {
@@ -266,11 +270,22 @@ namespace Moxel
                     return HtmlWriter.Save(this, filename);
                 case SaveFormat.PDF:
                     return PDFWriter.Save(this, filename);
+                case SaveFormat.Moxel:
+                    return this.Save(filename);
                 default:
                     throw new System.Exception("Формат сохранения не поддерживается.");
             }
             
         }
 
+        private bool Save(string filename)
+        {
+            using (FileStream fs = new FileStream(filename, FileMode.OpenOrCreate, FileAccess.ReadWrite))
+            {
+                BinaryFormatter bf = new BinaryFormatter();
+                bf.Serialize(fs, this);
+            }
+            return true;
+        }
     }
 }

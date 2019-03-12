@@ -96,7 +96,7 @@ namespace Moxel
             FF_DECORATIVE = (5 << 4),
         }
 
-
+        [Serializable]
         [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
         public struct LOGFONT
         {

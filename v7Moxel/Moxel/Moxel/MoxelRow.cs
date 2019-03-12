@@ -9,6 +9,7 @@ using System.Collections;
 
 namespace Moxel
 {
+    [Serializable]
     public class MoxelRow : IDictionary<int, DataCell>
     {
         Moxel Parent = null;

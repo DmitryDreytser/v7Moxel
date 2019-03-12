@@ -7,6 +7,7 @@ using static Moxel.Moxel;
 
 namespace Moxel
 {
+    [Serializable]
     public class EmbeddedObject : DataCell
     {
 

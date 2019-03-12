@@ -9,6 +9,7 @@ using static Moxel.Moxel;
 
 namespace Moxel
 {
+    [Serializable]
     [StructLayout(LayoutKind.Explicit, CharSet = CharSet.Ansi, Pack = 1)]
     public struct Cellv6
     {

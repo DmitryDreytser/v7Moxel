@@ -15,7 +15,9 @@ using System.IO;
 
 namespace Moxel
 {
-    [ComVisible(false)]
+    [ComVisible(true)]
+    [InterfaceType( ComInterfaceType.InterfaceIsIUnknown)]
+    [Guid("1EAE378F-C315-4B49-980C-A9A40792E78C")]
     internal interface IConverter
     {
         void Attach(dynamic Table);
@@ -23,7 +25,8 @@ namespace Moxel
     }
 
 
-    [ComVisible(true), Guid("bc631c98-2f0b-49b9-b722-b7e223e46059")]
+    [ComVisible(true)]
+    [Guid("2DF0622D-BC0A-4C30-8B7D-ACB66FB837B6")]
     [ClassInterface(ClassInterfaceType.AutoDual)]
     [Description("Конвертер MOXEL")]
     [ProgId("AddIn.Moxel.Converter")]
@@ -32,6 +35,7 @@ namespace Moxel
 
         /// <summary>ProgID COM-объекта компоненты</summary>
         string AddInName = "Moxel.Converter";
+        //string AddInName = "Таблица";
 
         /// <summary>Указатель на IDispatch</summary>
         protected object connect1c;
@@ -68,7 +72,7 @@ namespace Moxel
             var info = new System.Runtime.InteropServices.ComTypes.EXCEPINFO
             {
                 wCode = 1006,
-                bstrDescription = $"{AddInName}: ошибка {ex.GetType()} : {ex.Message}", //  {ex.StackTrace}
+                bstrDescription = $"{AddInName}: ошибка {ex.GetType()} : {ex.Message}", 
                 bstrSource = AddInName, 
                 scode = 1
             };
@@ -86,7 +90,8 @@ namespace Moxel
             var tt = Table.GetType().InvokeMember("Write", BindingFlags.InvokeMethod, null, Table, param);
 
 
-            while (Marshal.ReleaseComObject(Table) > 0) { } ;
+            while (Marshal.ReleaseComObject(Table) > 0){}
+
             Marshal.FinalReleaseComObject(Table);
 
             if (File.Exists(tempfile))
@@ -102,7 +107,7 @@ namespace Moxel
 
 
         #region IInitDone
-        public HRESULT Init([MarshalAs(UnmanagedType.IDispatch)] object connection)
+        HRESULT IInitDone.Init([MarshalAs(UnmanagedType.IDispatch)] object connection)
         {
             connect1c = connection;
             statusLine = (IStatusLine)connection;
@@ -111,13 +116,13 @@ namespace Moxel
             return HRESULT.S_OK;
         }
 
-        public HRESULT GetInfo([MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] info)
+        HRESULT IInitDone.GetInfo([MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] info)
         {
             info[0] = 2000;
             return HRESULT.S_OK;
         }
 
-        public HRESULT Done()
+        HRESULT IInitDone.Done()
         {
             
             if (connect1c != null)
@@ -151,7 +156,7 @@ namespace Moxel
 
 
 #region ILAnguageExtender
-        public HRESULT CallAsFunc(int methodNum, [MarshalAs(UnmanagedType.Struct)] ref object retValue, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] pParams)
+        HRESULT ILanguageExtender.CallAsFunc(int methodNum, [MarshalAs(UnmanagedType.Struct)] ref object retValue, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] pParams)
         {
             try
             {
@@ -167,7 +172,7 @@ namespace Moxel
             return HRESULT.S_OK;
         }
 
-        public HRESULT CallAsProc(int methodNum, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref dynamic[] pParams)
+        HRESULT ILanguageExtender.CallAsProc(int methodNum, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref dynamic[] pParams)
         {
             try
             {
@@ -182,16 +187,16 @@ namespace Moxel
         }
 
 
-        public Int32 FindMethod([MarshalAs(UnmanagedType.BStr)] string methodName)
+        int ILanguageExtender.FindMethod([MarshalAs(UnmanagedType.BStr)] string methodName)
         {
             if (nameToNumber.ContainsKey(methodName))
-                return (Int32)nameToNumber[methodName];
+                return (int)nameToNumber[methodName];
             else
             return -1;
             
         }
 
-        public HRESULT FindProp([MarshalAs(UnmanagedType.BStr)] string propName, ref Int32 propNum)
+        HRESULT ILanguageExtender.FindProp([MarshalAs(UnmanagedType.BStr)] string propName, ref Int32 propNum)
         {
             if (propertyNameToNumber.ContainsKey(propName))
             {
@@ -205,7 +210,7 @@ namespace Moxel
 
 
 
-        public HRESULT GetMethodName(int methodNum, int methodAlias, [MarshalAs(UnmanagedType.BStr)] ref string methodName)
+        HRESULT ILanguageExtender.GetMethodName(int methodNum, int methodAlias, [MarshalAs(UnmanagedType.BStr)] ref string methodName)
         {
             if (numberToName.ContainsKey(methodNum))
             {
@@ -216,13 +221,13 @@ namespace Moxel
 
         }
 
-        public HRESULT GetNMethods(ref Int32 pMethods)
+        HRESULT ILanguageExtender.GetNMethods(ref Int32 pMethods)
         {
             pMethods = allMethodInfo.Length;
             return HRESULT.S_OK;
         }
 
-        public HRESULT GetNParams(int methodNum, ref int pParams)
+        HRESULT ILanguageExtender.GetNParams(int methodNum, ref int pParams)
         {
             if (numberToParams.ContainsKey(methodNum))
             {
@@ -261,7 +266,7 @@ namespace Moxel
             return HRESULT.S_OK;
         }
 
-        public HRESULT HasRetVal(int methodNum, ref bool retValue)
+        HRESULT ILanguageExtender.HasRetVal(int methodNum, ref bool retValue)
         {
             if (numberToRetVal.ContainsKey(methodNum))
             {
@@ -273,7 +278,7 @@ namespace Moxel
         }
 
 
-        public HRESULT IsPropReadable(int propNum, ref bool propRead)
+        HRESULT ILanguageExtender.IsPropReadable(int propNum, ref bool propRead)
         {
             propRead = allPropertyInfo[(int)propertyNumberToPropertyInfoIdx[propNum]].CanRead;
             return HRESULT.S_OK;
@@ -285,7 +290,7 @@ namespace Moxel
             return HRESULT.S_OK;
         }
 
-        public HRESULT RegisterExtensionAs([MarshalAs(UnmanagedType.BStr)] ref String extensionName)
+        HRESULT ILanguageExtender.RegisterExtensionAs([MarshalAs(UnmanagedType.BStr)] ref String extensionName)
         {
             try
             {

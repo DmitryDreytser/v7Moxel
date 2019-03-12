@@ -1,7 +1,9 @@
-﻿using System.IO;
+﻿using System;
+using System.IO;
 
 namespace Moxel
 {
+    [Serializable]
     public class Section
     {
         int Begin;

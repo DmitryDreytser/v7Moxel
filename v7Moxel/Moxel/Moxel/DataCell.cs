@@ -8,6 +8,7 @@ using static Moxel.Moxel;
 
 namespace Moxel
 {
+    [Serializable]
     public class DataCell
     {
         public Cellv6 FormatCell;

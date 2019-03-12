@@ -1,9 +1,11 @@
-﻿using System.Runtime.InteropServices;
+﻿using System;
+using System.Runtime.InteropServices;
 using static Moxel.Moxel;
 
 namespace Moxel
 {
     [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+    [Serializable]
     public struct Picture
     {
         public ObjectType dwType;
