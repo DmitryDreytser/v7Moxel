@@ -14,7 +14,7 @@ namespace Moxel
     {
         Moxel Parent = null;
         public Cellv6 FormatCell;
-        Dictionary<int, DataCell> values;
+        public Dictionary<int, DataCell> values;
 
         public int Height
         {

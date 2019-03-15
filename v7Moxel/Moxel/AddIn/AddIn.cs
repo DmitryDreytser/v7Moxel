@@ -1,26 +1,31 @@
 ﻿using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
 using AddIn;
 using System.Reflection;
 using System.Collections;
-using System.Windows.Forms;
-using Moxel;
 using System.ComponentModel;
 using System.IO;
-//using Moxel;
+using System.Windows.Forms;
 
 namespace Moxel
 {
+    public sealed class AliasAttribute : Attribute
+    {
+        public string RussianName { get; set; }
+        public AliasAttribute(string alias)
+        {
+            RussianName = alias;
+        }
+    }
+
     [ComVisible(true)]
     [InterfaceType( ComInterfaceType.InterfaceIsIUnknown)]
     [Guid("1EAE378F-C315-4B49-980C-A9A40792E78C")]
     internal interface IConverter
     {
+        [Alias("Присоединить")]
         void Attach(dynamic Table);
+        [Alias("Записать")]
         string Save(string filename, SaveFormat format);
     }
 
@@ -80,6 +85,88 @@ namespace Moxel
             errorLog.AddError("", ref info);
         }
 
+        [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        delegate IntPtr pGetRuntimeClass(IntPtr pObj);
+
+        [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        public delegate IntPtr _CreateObject(IntPtr pMem);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        public delegate IntPtr _GetBaseClass();
+
+
+        [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Ansi, Pack = 1)]
+        public class CRuntimeClass
+        {
+            [MarshalAs(UnmanagedType.LPStr)]
+            public string ClassName;
+            public int Size;
+            public int xz;
+            private IntPtr pCreateObject;
+            private IntPtr pGetBAseClass;
+
+            public object CreateObject()
+            {
+                if (pCreateObject != IntPtr.Zero)
+                {
+                    IntPtr pObj = Marshal.AllocHGlobal(Size);
+                    return Marshal.GetDelegateForFunctionPointer<_CreateObject>(pCreateObject).Invoke(pObj);
+                }
+                else
+                    return null;
+                        
+            }
+
+            public CRuntimeClass GetBaseClass() 
+            {
+                    if (pGetBAseClass != IntPtr.Zero)
+                        return Marshal.PtrToStructure<CRuntimeClass>(Marshal.GetDelegateForFunctionPointer<_GetBaseClass>(pGetBAseClass).Invoke());
+                    else
+                        return null;
+            }
+
+            public override string ToString()
+            {
+                return $"RTTI:{ClassName}";
+            }
+
+            public CRuntimeClass GetRootClass()
+            {
+
+                if (pGetBAseClass != IntPtr.Zero)
+                    if (xz == 0x0000ffff)
+                        return this;
+                    else
+                        return Marshal.PtrToStructure<CRuntimeClass>(Marshal.GetDelegateForFunctionPointer<_GetBaseClass>(pGetBAseClass).Invoke()).GetRootClass();
+                else
+                    return null;
+            }
+        }
+
+        public class CObject : MarshalByRefObject
+        {
+            public CRuntimeClass RuntimeClass;
+            public byte[] Data
+            {
+                get
+                {
+                    byte[] data = new byte[RuntimeClass.Size];
+                    Marshal.Copy(pObject,data, 0, data.Length);
+                    return data;
+                }
+            }
+
+            IntPtr pObject;
+            public CObject(IntPtr pMem)
+            {
+                pObject = pMem;
+
+                IntPtr pGetClass = Marshal.ReadIntPtr(Marshal.ReadIntPtr(pObject, 0), 0);
+                pGetRuntimeClass GetRuntimeClass = (pGetRuntimeClass)Marshal.GetDelegateForFunctionPointer(pGetClass, typeof(pGetRuntimeClass));
+                RuntimeClass = Marshal.PtrToStructure<CRuntimeClass>(GetRuntimeClass(pObject));
+            }
+        }
+
 
         public void Attach(object Table)
         {
@@ -89,6 +176,30 @@ namespace Moxel
             object[] param = { tempfile, "mxl" };
             var tt = Table.GetType().InvokeMember("Write", BindingFlags.InvokeMethod, null, Table, param);
 
+            //IntPtr Tptr = Marshal.GetNativeVariantForObject(Table, );
+
+            //MessageBox.Show($"{Tptr.ToInt32():X8}");
+
+            IntPtr ptr = Marshal.GetIUnknownForObject(Table); //Возвращает указатель на CBLExportContext
+
+            IntPtr TableOutputContext = Marshal.ReadIntPtr(ptr, 8); // Объект CTableOutputContext
+            IntPtr Sheet = Marshal.ReadIntPtr(TableOutputContext, 56); // Объект CSheet
+
+            CObject CSheet = new CObject(Sheet);
+
+            //IntPtr pGetClass = Marshal.ReadIntPtr(Marshal.ReadIntPtr(Sheet, 0),0);
+
+            //MessageBox.Show($"TableOutputContext = {TableOutputContext.ToInt32():X08}");
+            //MessageBox.Show($"Sheet = {Sheet.ToInt32():X08}");
+
+            //MessageBox.Show($"GetRuntimeClass = {pGetClass.ToInt32():X08}");
+
+
+
+
+
+
+            Marshal.Release(ptr);
 
             while (Marshal.ReleaseComObject(Table) > 0){}
 
@@ -96,6 +207,7 @@ namespace Moxel
 
             if (File.Exists(tempfile))
                 mxl = new Moxel(tempfile);
+
             File.Delete(tempfile);
         }
 
@@ -161,12 +273,9 @@ namespace Moxel
             try
             {
                 retValue = allMethodInfo[(int)numberToMethodInfoIdx[methodNum]].Invoke(this, pParams);
-                
             }
             catch (Exception e)
             {
-               // MessageBox.Show(e.ToString());
-
                 PostException(e.InnerException);
             }
             return HRESULT.S_OK;
@@ -189,8 +298,8 @@ namespace Moxel
 
         int ILanguageExtender.FindMethod([MarshalAs(UnmanagedType.BStr)] string methodName)
         {
-            if (nameToNumber.ContainsKey(methodName))
-                return (int)nameToNumber[methodName];
+            if (nameToNumber.ContainsKey(methodName.ToUpper()))
+                return (int)nameToNumber[methodName.ToUpper()];
             else
             return -1;
             
@@ -198,9 +307,9 @@ namespace Moxel
 
         HRESULT ILanguageExtender.FindProp([MarshalAs(UnmanagedType.BStr)] string propName, ref Int32 propNum)
         {
-            if (propertyNameToNumber.ContainsKey(propName))
+            if (propertyNameToNumber.ContainsKey(propName.ToUpper()))
             {
-                propNum = (Int32)propertyNameToNumber[propName];
+                propNum = (Int32)propertyNameToNumber[propName.ToUpper()];
                 return HRESULT.S_OK;
             }
 
@@ -329,10 +438,16 @@ namespace Moxel
                     MethodInfo[] interfaceMethods = interfaceType.GetMethods();
                     foreach (MethodInfo interfaceMethodInfo in interfaceMethods)
                     {
-                        nameToNumber.Add(interfaceMethodInfo.Name, Identifier);
+                        string alias = ((AliasAttribute)Attribute.GetCustomAttribute(interfaceMethodInfo, typeof(AliasAttribute))).RussianName.ToUpper();
+
+                        nameToNumber.Add(interfaceMethodInfo.Name.ToUpper(), Identifier);
                         numberToName.Add(Identifier, interfaceMethodInfo.Name);
                         numberToParams.Add(Identifier, interfaceMethodInfo.GetParameters().Length);
                         numberToRetVal.Add(Identifier, (interfaceMethodInfo.ReturnType != typeof(void)));
+                        if (!string.IsNullOrWhiteSpace(alias))
+                        {
+                            nameToNumber.Add(alias, Identifier);
+                        }
                         Identifier++;
                     }
 
@@ -340,8 +455,17 @@ namespace Moxel
                     PropertyInfo[] interfaceProperties = interfaceType.GetProperties();
                     foreach (PropertyInfo interfacePropertyInfo in interfaceProperties)
                     {
+                        string alias = ((AliasAttribute)Attribute.GetCustomAttribute(interfacePropertyInfo, typeof(AliasAttribute))).RussianName.ToUpper();
+
                         propertyNameToNumber.Add(interfacePropertyInfo.Name, Identifier);
+
                         propertyNumberToName.Add(Identifier, interfacePropertyInfo.Name);
+
+                        if (!string.IsNullOrWhiteSpace(alias))
+                        {
+                            propertyNameToNumber.Add(alias, Identifier);
+                        }
+
                         Identifier++;
                     }
                 }

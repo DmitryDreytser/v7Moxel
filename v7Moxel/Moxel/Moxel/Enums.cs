@@ -88,6 +88,7 @@ namespace Moxel
 
         public enum ObjectType
         {
+            None = 0,   //1-линия
             Line = 1,   //1-линия
             Rectangle,  //2-квадрат
             Text,       //3-блок текста (но без текста)
@@ -130,6 +131,7 @@ namespace Moxel
         [Flags]
         public enum ObjectBorderPresence : byte
         {
+            Empty = 0,
             Left = 0x01,
             Top = 0x02,
             Right = 0x04,
@@ -139,6 +141,7 @@ namespace Moxel
 
         public enum clFontWeight : byte
         {
+            Empty = 0,
             Normal = 0x04,
             Bold = 0x07
         };

@@ -1,8 +1,5 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using static Moxel.Moxel;
 
 using ClosedXML.Excel;
@@ -239,9 +236,6 @@ namespace Moxel
 
                 foreach(EmbeddedObject obj in moxel.Objects)
                 {
-                    DocumentFormat.OpenXml.Vml.Shape sh = new DocumentFormat.OpenXml.Vml.Shape();
-                    
-                    
                     using (var ms = new MemoryStream())
                     {
                         obj.pObject.Save(ms, ImageFormat.Png);
