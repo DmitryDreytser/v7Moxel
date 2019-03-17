@@ -85,6 +85,15 @@ namespace Moxel
             errorLog.AddError("", ref info);
         }
 
+        public class CSheetNative : CObject
+        {
+
+            public CSheetNative(IntPtr pMem) : base(pMem)
+            {
+
+            }
+        }
+
         [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
         delegate IntPtr pGetRuntimeClass(IntPtr pObj);
 
@@ -143,7 +152,7 @@ namespace Moxel
             }
         }
 
-        public class CObject : MarshalByRefObject
+        public class CObject
         {
             public CRuntimeClass RuntimeClass;
             public byte[] Data
@@ -156,14 +165,41 @@ namespace Moxel
                 }
             }
 
-            IntPtr pObject;
+            protected IntPtr pObject;
+
             public CObject(IntPtr pMem)
             {
                 pObject = pMem;
-
                 IntPtr pGetClass = Marshal.ReadIntPtr(Marshal.ReadIntPtr(pObject, 0), 0);
                 pGetRuntimeClass GetRuntimeClass = (pGetRuntimeClass)Marshal.GetDelegateForFunctionPointer(pGetClass, typeof(pGetRuntimeClass));
                 RuntimeClass = Marshal.PtrToStructure<CRuntimeClass>(GetRuntimeClass(pObject));
+            }
+
+
+            public static T FromComObject<T>(object obj) where T : CObject
+            {
+                IntPtr ptr = Marshal.GetIUnknownForObject(obj); //Возвращает указатель на CBLExportContext
+                if (ptr != IntPtr.Zero)
+                {
+                    IntPtr COutputContext = Marshal.ReadIntPtr(ptr, 8); // укзатель на CTableOutputContext
+                    Marshal.Release(ptr);
+                    return  (T)Activator.CreateInstance(typeof(T), COutputContext);
+                }
+                else
+                    return null;
+            }
+
+            public T GetMember<T>(int offset) where T : CObject
+            {
+                if (pObject != IntPtr.Zero)
+                    return (T)Activator.CreateInstance(typeof(T), Marshal.ReadIntPtr(pObject, offset));
+                else
+                    return null;
+            }
+
+            public CObject GetMember(int offset) 
+            {
+                return new CObject(Marshal.ReadIntPtr(pObject, offset));
             }
         }
 
@@ -175,31 +211,16 @@ namespace Moxel
             tempfile += ".mxl";
             object[] param = { tempfile, "mxl" };
             var tt = Table.GetType().InvokeMember("Write", BindingFlags.InvokeMethod, null, Table, param);
+            var TableObject = CObject.FromComObject<CObject>(Table);
+            CSheetNative Sheet = null;
 
-            //IntPtr Tptr = Marshal.GetNativeVariantForObject(Table, );
+            if (TableObject.RuntimeClass.ClassName == "CTableOutputContext")
+                Sheet = TableObject.GetMember<CSheetNative>(56);
 
-            //MessageBox.Show($"{Tptr.ToInt32():X8}");
-
-            IntPtr ptr = Marshal.GetIUnknownForObject(Table); //Возвращает указатель на CBLExportContext
-
-            IntPtr TableOutputContext = Marshal.ReadIntPtr(ptr, 8); // Объект CTableOutputContext
-            IntPtr Sheet = Marshal.ReadIntPtr(TableOutputContext, 56); // Объект CSheet
-
-            CObject CSheet = new CObject(Sheet);
-
-            //IntPtr pGetClass = Marshal.ReadIntPtr(Marshal.ReadIntPtr(Sheet, 0),0);
-
-            //MessageBox.Show($"TableOutputContext = {TableOutputContext.ToInt32():X08}");
-            //MessageBox.Show($"Sheet = {Sheet.ToInt32():X08}");
-
-            //MessageBox.Show($"GetRuntimeClass = {pGetClass.ToInt32():X08}");
+            if (Sheet != null)
+                MessageBox.Show(Sheet.RuntimeClass.ClassName);
 
 
-
-
-
-
-            Marshal.Release(ptr);
 
             while (Marshal.ReleaseComObject(Table) > 0){}
 
