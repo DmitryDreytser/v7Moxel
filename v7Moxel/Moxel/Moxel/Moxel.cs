@@ -3,14 +3,13 @@ using System.Runtime.InteropServices;
 using System.IO;
 using System;
 using System.Xml.Serialization;
-using static Moxel.Moxel;
 
 namespace Moxel
 {
     [ComVisible(true)]
     public enum SaveFormat
     {
-        Excel,
+        Excel = 1,
         Html,
         PDF,
         XML
