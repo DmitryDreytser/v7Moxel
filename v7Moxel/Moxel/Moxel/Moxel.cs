@@ -54,14 +54,14 @@ namespace Moxel
         /// <summary>
         /// Список шрифтов
         /// </summary>
-        public SerializableDictionary<int, LOGFONT> FontList;
+        public SerializableDictionary<int, LOGFONT> FontList = new SerializableDictionary<int, LOGFONT>();
 
         //public FontList FontList;
 
         /// <summary>
         /// Список строк
         /// </summary>
-        public SerializableDictionary<int, string> stringTable;
+        public SerializableDictionary<int, string> stringTable = new SerializableDictionary<int, string>();
         /// <summary>
         /// Верхний колонтитул
         /// </summary>
@@ -75,47 +75,47 @@ namespace Moxel
         /// <summary>
         /// Форматные ячейки колонок
         /// </summary>
-        public SerializableDictionary<int, DataCell> Columns;
+        public SerializableDictionary<int, DataCell> Columns = new SerializableDictionary<int, DataCell>();
 
         /// <summary>
         /// Строки
         /// </summary>
-        public SerializableDictionary<int, MoxelRow> Rows;
+        public SerializableDictionary<int, MoxelRow> Rows = new SerializableDictionary<int, MoxelRow>();
 
         /// <summary>
         /// Список встроенных объектов
         /// </summary>
-        public List<EmbeddedObject> Objects;
+        public List<EmbeddedObject> Objects = new List<EmbeddedObject>();
 
         /// <summary>
         /// Объединенные ячейки
         /// </summary>
-        public List<CellsUnion> Unions;
+        public List<CellsUnion> Unions = new List<CellsUnion>();
 
         /// <summary>
         /// Вертикальные секции
         /// </summary>
-        public List<Section> VerticalSections;
+        public List<Section> VerticalSections = new List<Section>();
 
         /// <summary>
         /// Горизонтальные секции
         /// </summary>
-        public List<Section> HorisontalSections;
+        public List<Section> HorisontalSections = new List<Section>();
 
         /// <summary>
         /// Горизонтальные разрывы
         /// </summary>
-        public int[] HorisontalPageBreaks;
+        public int[] HorisontalPageBreaks = new int[0];
 
         /// <summary>
         /// Вертикальные разрывы
         /// </summary>
-        public int[] VerticalPageBreaks;
+        public int[] VerticalPageBreaks = new int[0];
 
         /// <summary>
         /// Именованные области
         /// </summary>
-        public List<MoxelArea> AreaNames;
+        public List<MoxelArea> AreaNames = new List<MoxelArea>();
 
         public int GetColumnWidth(int ColNumber)
         {

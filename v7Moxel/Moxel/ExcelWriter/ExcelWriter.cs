@@ -110,9 +110,30 @@ namespace Moxel
                             var moxelCell = Row[columnNumber];
                             string Text = moxelCell.Text;
 
-                            if (!string.IsNullOrWhiteSpace(Text))
+                            if (!string.IsNullOrEmpty(Text))
                             {
-                                cell.Value = Text;
+                                cell.SetValue<string>(Text);
+                                //cell.DataType = XLDataType.Text;
+
+                                Char separator = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.CurrencyDecimalSeparator[0];
+
+                                int Dots = Text.ToCharArray().Count(t => t == '.');
+
+                                if (Dots > 0 )
+                                {
+                                    if (Text.Contains(",") && Dots == 1)
+                                    {
+                                        string tText = Text.Replace(",", "").Replace('.', separator);
+                                        double val = 0;
+                                        if (Double.TryParse(tText, out val))
+                                        {
+                                            cell.Value = val;
+                                            cell.DataType = XLDataType.Number;
+                                            cell.Style.NumberFormat.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2WithSeparator);
+                                            //cell.Style.NumberFormat.Format = @"# ##0,00";
+                                        }
+                                    }
+                                }
 
                                 if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontName))
                                     cell.Style.Font.FontName = moxel.FontList[moxelCell.FormatCell.wFontNumber].lfFaceName;
@@ -144,7 +165,10 @@ namespace Moxel
                                     if (moxelCell.FormatCell.bControlContent == TextControl.Auto || moxelCell.FormatCell.bControlContent == TextControl.Wrap)
                                         cell.Style.Alignment.WrapText = true;
                                     if (moxelCell.FormatCell.bControlContent == TextControl.Cut)
+                                    {
                                         cell.Style.Alignment.WrapText = false;
+                                       // worksheet.Cell(rowNumber + 1, columnNumber + 2).SetValue<string>(" ");
+                                    }
                                 }
 
                                 cell.Style.Alignment.TextRotation = moxelCell.TextOrientation;
@@ -167,6 +191,12 @@ namespace Moxel
                                         case TextHorzAlign.BySelection:
                                             cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.General;
                                             break;
+                                        case TextHorzAlign.CenterBySelection:
+                                            {
+                                                worksheet.Range(rowNumber + 1, 1, rowNumber + 1, moxel.nAllColumnCount).Select();
+                                                worksheet.SelectedRanges.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.CenterContinuous;
+                                                break;
+                                            }
                                         default:
                                             break; 
                                     }
@@ -238,14 +268,37 @@ namespace Moxel
                 {
                     using (var ms = new MemoryStream())
                     {
-                        obj.pObject.Save(ms, ImageFormat.Png);
-                        var picture = worksheet.AddPicture(ms, XLPictureFormat.Png ,$"D{obj.Picture.dwZOrder}");
-                        var topLeftCell = worksheet.Cell(obj.Picture.dwRowStart + 1, obj.Picture.dwColumnStart + 1);
-                        picture.Placement = XLPicturePlacement.Move;
-                        picture.Width = obj.AbsoluteImageArea.Width;
-                        picture.Height = obj.AbsoluteImageArea.Height;
+                        switch (obj.Picture.dwType)
+                        {
+                            case ObjectType.Picture:
+                            case ObjectType.Ole:
+                                {
+                                    obj.pObject.Save(ms, ImageFormat.Png);
+                                    var picture = worksheet.AddPicture(ms, XLPictureFormat.Png, $"D{obj.Picture.dwZOrder}");
+                                    var topLeftCell = worksheet.Cell(obj.Picture.dwRowStart + 1, obj.Picture.dwColumnStart + 1);
+                                    picture.Placement = XLPicturePlacement.Move;
+                                    picture.Width = obj.AbsoluteImageArea.Width;
+                                    picture.Height = obj.AbsoluteImageArea.Height;
 
-                        picture.MoveTo(topLeftCell, (int) Math.Round(obj.Picture.dwOffsetLeft / 2.8), (int)Math.Round(obj.Picture.dwOffsetTop / 2.8));
+                                    picture.MoveTo(topLeftCell, (int)Math.Round(obj.Picture.dwOffsetLeft / 2.8), (int)Math.Round(obj.Picture.dwOffsetTop / 2.8));
+                                    break;
+                                }
+                            case ObjectType.Text:
+                                {
+                                    break;
+                                }
+                            case ObjectType.Line:
+                                {
+                                    break;
+                                }
+                            case ObjectType.Rectangle:
+                                {
+                                    break;
+                                }
+                            default:
+                                break;
+                            
+                        }
                       }
                 }
 

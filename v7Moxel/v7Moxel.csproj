@@ -114,7 +114,6 @@
   <ItemGroup>
     <Compile Include="Moxel\AddIn\Interfaces\IErrorLog.cs" />
     <Compile Include="Moxel\Moxel\HRESULT.cs" />
-    <Compile Include="Moxel\AddIn\Converter.cs" />
     <Compile Include="Moxel\AddIn\Interfaces\IAsyncEvent.cs" />
     <Compile Include="Moxel\AddIn\Interfaces\IInitDone.cs" />
     <Compile Include="Moxel\AddIn\Interfaces\ILanguageExtender.cs" />

@@ -77,14 +77,21 @@ namespace Moxel
                     FormatCell.Text = FormatCell.Text.Replace(" ", "&nbsp;");
                     CellStyle.Set("white-space", "nowrap");
                     CellStyle.Set("max-width", "0px");
+
                 }
 
                 if (Format.dwFlags.HasFlag(MoxelCellFlags.AlignV))
                     CellStyle.Set("vertical-align", Format.bVertAlign.ToString());
 
                 if (Format.dwFlags.HasFlag(MoxelCellFlags.AlignH))
-                    CellStyle.Set("text-align", Format.bHorAlign.ToString());
-
+                {
+                    if (Format.bHorAlign == TextHorzAlign.CenterBySelection)
+                    {
+                        CellStyle.Set("text-align", "center");
+                    }
+                    else
+                        CellStyle.Set("text-align", Format.bHorAlign.ToString());
+                }
                 if (FormatCell.TextOrientation != 0)
                     CellStyle.Set("transform", $"rotate(-{FormatCell.TextOrientation}deg)");
 
@@ -316,6 +323,23 @@ namespace Moxel
 
                     if (!string.IsNullOrWhiteSpace(Text))
                     {
+                        if (FormatCell.bControlContent == TextControl.Auto || FormatCell.bControlContent == TextControl.Auto)
+                        {
+                            if (columnnumber < Row.Count)
+                            {
+                                DataCell NextColumnCelll = Row[columnnumber + 1];
+                                if (!string.IsNullOrEmpty(NextColumnCelll.Text) || NextColumnCelll.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
+                                {
+                                    CellStyle.Add("Overflow", "Hidden");
+                                }
+                            }
+                        }
+
+                        if (FormatCell.bHorAlign == TextHorzAlign.CenterBySelection && Union.IsEmpty())
+                        {
+                            Union = new CellsUnion { dwTop = rownumber, dwBottom = rownumber, dwLeft = 0, dwRight = moxel.nAllColumnCount };
+                        }
+
                         //if (Row.Height == 0)
                         {
                             Size Constr = new Size { Width = (int)Math.Round((moxel.GetWidth(columnnumber, columnnumber + Union.ColumnSpan) + moxel.GetColumnWidth(columnnumber)) * 0.875), Height = 0 };

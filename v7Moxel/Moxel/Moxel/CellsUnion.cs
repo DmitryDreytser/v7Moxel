@@ -13,6 +13,11 @@ namespace Moxel
         public int dwBottom;
         public static CellsUnion Empty = new CellsUnion();
 
+        public bool IsEmpty()
+        {
+            return dwLeft == 0 && dwRight == 0 && dwTop == 0 && dwBottom == 0;
+        }
+
         public string HtmlSpan
         {
             get
