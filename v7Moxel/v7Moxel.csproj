@@ -36,8 +36,7 @@
     <DebugType>none</DebugType>
     <Optimize>true</Optimize>
     <OutputPath>bin\Release\</OutputPath>
-    <DefineConstants>
-    </DefineConstants>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
     <ErrorReport>prompt</ErrorReport>
     <WarningLevel>4</WarningLevel>
     <RunCodeAnalysis>false</RunCodeAnalysis>
@@ -113,6 +112,11 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Include="Moxel\AddIn\Interfaces\IErrorLog.cs" />
+    <Compile Include="Moxel\AddIn\MemoryReader\MemoryReader.cs" />
+    <Compile Include="Moxel\AddIn\MemoryReader\MFCNative.cs" />
+    <Compile Include="Moxel\AddIn\MemoryReader\MoxelNative.cs" />
+    <Compile Include="Moxel\AddIn\MemoryReader\WinApi.cs" />
+    <Compile Include="Moxel\AddIn\SaveWrapper.cs" />
     <Compile Include="Moxel\Moxel\HRESULT.cs" />
     <Compile Include="Moxel\AddIn\Interfaces\IAsyncEvent.cs" />
     <Compile Include="Moxel\AddIn\Interfaces\IInitDone.cs" />
