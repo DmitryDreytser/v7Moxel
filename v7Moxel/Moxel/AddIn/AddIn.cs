@@ -35,7 +35,7 @@ namespace Moxel
         string Save(string filename, SaveFormat format);
 
         [Alias("ПерехватитьЗапись")]
-        void WrapSaveAs(bool wrap);
+        int WrapSaveAs(int doWrap = 1);
     }
 
 
@@ -78,7 +78,7 @@ namespace Moxel
 
         Moxel mxl;
 
-        protected void PostException(Exception ex)
+        public void PostException(Exception ex)
         {
             if (errorLog == null)
                 return;
@@ -96,17 +96,14 @@ namespace Moxel
 
         static bool isWrapped = false;
 
-        public void WrapSaveAs(bool wrap)
+        public int WrapSaveAs(int doWrap = 1)
         {
-
+           return  SaveWrapper.Wrap(doWrap == 1);
         }
 
 
         public void ReadFromMemory(object Table)
         {
-
-            //SaveWrapper.Wrap(true);
-
             try
             {
                 CTableOutputContext TableObject = CObject.FromComObject<CTableOutputContext>(Table);
@@ -158,8 +155,16 @@ namespace Moxel
 
         public string Save(string filename, SaveFormat format)
         {
-            mxl.SaveAs(filename, format);
-            return filename;
+            if (mxl != null)
+            {
+                mxl.SaveAs(filename, format);
+                return filename;
+            }
+            else
+            {
+                PostException(new Exception("Таблица не загружена."));
+                return null;
+            }
         }
 
 
@@ -181,6 +186,7 @@ namespace Moxel
 
         HRESULT IInitDone.Done()
         {
+            SaveWrapper.Wrap(false);
             
             if (connect1c != null)
             {
@@ -456,6 +462,8 @@ namespace Moxel
             {
                 PostException(e);
             }
+
+            WrapSaveAs(1);
 
             return HRESULT.S_OK;
             

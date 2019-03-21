@@ -1,11 +1,13 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using static Moxel.MemoryReader;
 
 namespace Moxel
 {
@@ -557,79 +559,193 @@ namespace Moxel
 
     public static class SaveWrapper
     {
-        [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
-        public delegate int CSheetDoc_SaveAs(IntPtr _this, string FileName, int SaveAsType);
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        public delegate int dSaveToExcel(IntPtr SheetDoc, IntPtr SheetGDI, string FileName);
 
-        static CSheetDoc_SaveAs OriginalProc = MoxelNative.GetDelegate<CSheetDoc_SaveAs>("?SaveAs@CSheetDoc@@QAEHPBDW4CSheetSaveAsType@@@Z");
-        static CSheetDoc_SaveAs WrapperProc = new CSheetDoc_SaveAs(SaveAs);
+        static dSaveToExcel WrapperProc = new dSaveToExcel(SaveToExcel);
         static GCHandle wrapper = GCHandle.Alloc(WrapperProc);
+        static IntPtr pWrapperProc = Marshal.GetFunctionPointerForDelegate<dSaveToExcel>(WrapperProc);
 
         static bool isWraped = false;
+        static IntPtr ProcRVA = IntPtr.Zero;
 
-        static IntPtr ProcRVA;
-
-        static IntPtr pOriginalProc;
-        static IntPtr pWrapperProc = Marshal.GetFunctionPointerForDelegate<CSheetDoc_SaveAs>(WrapperProc);
-
-
-        static int SaveAs(IntPtr _this, string FileName, int SaveAsType)
+        static int SaveToExcel(IntPtr pSheetDoc, IntPtr SheetGDI, string FileName)
         {
-            if (SaveAsType == 4)
+            CFile f = CFile.FromHFile(IntPtr.Zero);
+            int result = 0;
+            try
             {
-                return 1;
+                CSheetDoc SheetDoc = new CSheetDoc(pSheetDoc);
+                
+                CArchive Arch = new CArchive(f, SheetDoc);
+                SheetDoc.Serialize(Arch);
+                Arch.Flush();
+                Arch = null;
+                byte[] buffer = f.GetBufer();
+                f = null;
+
+                Moxel mxl = new Moxel(ref buffer);
+
+                if (FileName.EndsWith(".xlsx"))
+                    mxl.SaveAs(FileName, SaveFormat.Excel);
+                else
+                {
+                    if (FileName.EndsWith(".xls"))
+                    {
+                        mxl.SaveAs(FileName + "x", SaveFormat.Excel);
+                        File.Move(FileName + "x", FileName);
+                    }
+                    else
+                        mxl.SaveAs(FileName + ".xlsx", SaveFormat.Excel);
+                }
+                result = 1;
             }
-            else
-                return OriginalProc(_this, FileName, SaveAsType);
+            catch(Exception ex)
+            {
+                f.unpatch(); // Обязательно снять перехват
+                f = null;
+                result = 0;
+            }
+
+            return result;
         }
 
-        static PE Moxel_Dll = null;
-        static IntPtr hProcess = Process.GetCurrentProcess().Handle;
+        static int hMoxel = 0;
+        static IntPtr hProcess;// = Process.GetCurrentProcess().Handle;
 
-        public static void Wrap(bool DoWrap)
+        static byte[] OriginalBytes = new byte[6];
+
+        static byte[] oldRes = new byte[288];
+
+        static IntPtr FileSaveFilterResource;
+
+        public static int Wrap(bool DoWrap)
         {
 
-            if (Moxel_Dll == null)
+            if (hMoxel == 0)
             {
-                Moxel_Dll = new PE("Moxel.dll");
-                ProcRVA = Moxel_Dll.GetProcExportAddress("?SaveAs@CSheetDoc@@QAEHPBDW4CSheetSaveAsType@@@Z");
+                hMoxel = WinApi.GetModuleHandle("Moxel.dll").ToInt32();
+                ProcRVA = new IntPtr(hMoxel + 0x5B420);
+                Marshal.Copy(ProcRVA, OriginalBytes, 0, 6);
             }
 
             uint Protection = 0;
-
-            if (DoWrap)
+            try
             {
-                if (isWraped)
-                    return;
+                if (DoWrap)
+                {
+                    if (isWraped)
+                        return 1;
+                    hProcess = Process.GetCurrentProcess().Handle;
 
-                WinApi.VirtualProtectEx(hProcess, ProcRVA, new IntPtr(4), 0x40, out Protection);
+                    IntPtr RetAddress = Marshal.GetFunctionPointerForDelegate<dSaveToExcel>(WrapperProc);
 
-                
-                pOriginalProc = Marshal.ReadIntPtr(ProcRVA, 0);
-                IntPtr newRVA = new IntPtr(pWrapperProc.ToInt64() - Moxel_Dll.dw_ImageBase);
-                Debug.WriteLine($"Патч по адресу {ProcRVA.ToInt32():X8}: {pOriginalProc.ToInt32():X8} => {newRVA.ToInt32():X8}" );
-                Marshal.WriteIntPtr(ProcRVA, newRVA);
-                
-                WinApi.FlushInstructionCache(hProcess, ProcRVA, new IntPtr(4));
+                    if (WinApi.VirtualProtectEx(hProcess, ProcRVA, new IntPtr(6), 0x40, out Protection))
+                    {
+                        Debug.WriteLine($"Патч по адресу {ProcRVA.ToInt32():X8}: PUSH {RetAddress.ToInt32():X8}; RET;");
 
-                WinApi.VirtualProtectEx(hProcess, ProcRVA, new IntPtr(4), Protection, out Protection);
-                isWraped = true;
+                        Marshal.WriteByte(ProcRVA, 0x68); //PUSH
+                        Marshal.WriteIntPtr(new IntPtr(ProcRVA.ToInt32() + 1), RetAddress);
+                        Marshal.WriteByte(new IntPtr(ProcRVA.ToInt32() + 5), 0xC3); //RET
+
+                        WinApi.FlushInstructionCache(hProcess, ProcRVA, new IntPtr(6));
+
+                        WinApi.VirtualProtectEx(hProcess, ProcRVA, new IntPtr(6), Protection, out Protection);
+                        
+
+                        //Заменим фильтр диалога сохранения. Заменим *.xls на *.xlsx
+
+                        IntPtr hRCRus = WinApi.GetModuleHandle("1crcrus.dll");
+
+                        IntPtr Res = WinApi.FindResource(hRCRus, WinApi.MakeIntResource(0x770), 6);
+
+                        int len = WinApi.SizeofResource(hRCRus, Res);
+                        Array.Resize(ref oldRes, len);
+
+                        Res = WinApi.LoadResource(hRCRus, Res);
+
+                        FileSaveFilterResource = WinApi.LockResource(Res);
+
+                        Debug.WriteLine($"Ресурс найден по адресу {FileSaveFilterResource.ToInt32():X8}");
+
+                        Marshal.Copy(FileSaveFilterResource, oldRes, 0, len);
+
+
+                        Char[] newRes = new Char[len / 2];
+                        Array.Clear(newRes, 0, newRes.Length);
+
+                        string[] DialogFilter = { "Таблица Excel 2007 (*.xlsx)|*.xlsx", "HTML Документ (*.html)|*.html", "Текстовый файл (*.txt)|*.txt" };
+
+                        int charindex = 0;
+                        foreach (string Filter in DialogFilter)
+                        {
+                            newRes[charindex++] = (Char)Filter.Length;
+
+                            foreach (Char chr in Filter)
+                            {
+                                newRes[charindex++] = chr;
+                            }
+                        }
+
+                        byte[] buffer = new byte[charindex * 2];
+
+                        Array.Resize(ref newRes, charindex);
+
+                        Buffer.BlockCopy(newRes, 0, buffer, 0, newRes.Length * 2);
+
+                        if (WinApi.VirtualProtectEx(hProcess, FileSaveFilterResource, new IntPtr(buffer.Length), 0x40, out Protection))
+                        {
+
+                            Marshal.Copy(buffer, 0, FileSaveFilterResource, buffer.Length);
+
+                            WinApi.VirtualProtectEx(hProcess, FileSaveFilterResource, new IntPtr(buffer.Length), Protection, out Protection);
+                        }
+
+                        isWraped = true;
+                    }
+
+                }
+                else
+                {
+                    if (!isWraped)
+                        return 1;
+
+                    hProcess = Process.GetCurrentProcess().Handle;
+
+                    if (WinApi.VirtualProtectEx(hProcess, ProcRVA, new IntPtr(6), 0x40, out Protection));
+                    {
+                        Marshal.Copy(OriginalBytes, 0, ProcRVA, 6);
+
+                        Debug.WriteLine($"Снят патч по адресу {ProcRVA.ToInt32():X8}");
+
+                        WinApi.FlushInstructionCache(hProcess, ProcRVA, new IntPtr(6));
+
+                        WinApi.VirtualProtectEx(hProcess, ProcRVA, new IntPtr(6), Protection, out Protection);
+
+
+                        //Вернем фильтр диалога сохранения таблиц на место
+
+                        if(WinApi.VirtualProtectEx(hProcess, FileSaveFilterResource, new IntPtr(oldRes.Length), 0x40, out Protection));
+                        {
+
+                            Marshal.Copy(oldRes, 0, FileSaveFilterResource, oldRes.Length);
+
+                            WinApi.VirtualProtectEx(hProcess, FileSaveFilterResource, new IntPtr(oldRes.Length), Protection, out Protection);
+                        }
+
+                        isWraped = false;
+                    }
+                }
+
+                if (isWraped == DoWrap)
+                    return 1;
+                else
+                    return 0;
             }
-            else
+            catch
             {
-                if (!isWraped)
-                    return;
-
-                WinApi.VirtualProtectEx(hProcess, ProcRVA, new IntPtr(4), 0x40, out Protection);
-
-                pOriginalProc = WinApi.InterlockedExchange(ProcRVA, pOriginalProc);
-
-                WinApi.FlushInstructionCache(hProcess, ProcRVA, new IntPtr(4));
-
-                WinApi.VirtualProtectEx(hProcess, ProcRVA, new IntPtr(4), Protection, out Protection);
-                isWraped = false;
+                return 0;
             }
-
-
 
         }
 

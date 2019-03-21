@@ -257,9 +257,11 @@ namespace Moxel
                             cell.Style.Border.RightBorderColor = XLColor.FromColor(moxelCell.FormatCell.BorderColor);
                             cell.Style.Border.LeftBorderColor = XLColor.FromColor(moxelCell.FormatCell.BorderColor);
                         }
+
+                        if (Row.Height == 0)
+                            Row.Height = (short)Math.Round(rowHeight + 3, 0);
                     }
-                    if (Row.Height == 0)
-                        Row.Height = (short)Math.Round(rowHeight + 3, 0) ;
+
 
                     worksheet.Row(rowNumber + 1).Height = rowHeight / 3.787;
                 }

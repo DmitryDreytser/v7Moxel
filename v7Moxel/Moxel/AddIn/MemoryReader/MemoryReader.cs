@@ -254,8 +254,10 @@ namespace Moxel
 
             static CFile__Write Handle;
 
-            void unpatch()
+            public void unpatch()
             {
+                if (!patched)
+                    return;
                 uint OldProtection;
                 WinApi.VirtualProtectEx(Process.GetCurrentProcess().Handle, FuncAddr, new IntPtr(4), 0x40, out OldProtection);
                 Marshal.WriteIntPtr(FuncAddr, old_Func); // Вернем оригинальную функцию.
@@ -282,6 +284,7 @@ namespace Moxel
 
             ~CFile()
             {
+                unpatch();
                 _CFileDestructor(this);
                 Marshal.FreeHGlobal(pObject);
             }
