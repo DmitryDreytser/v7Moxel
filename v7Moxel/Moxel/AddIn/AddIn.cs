@@ -48,7 +48,7 @@ namespace Moxel
     {
 
         /// <summary>ProgID COM-объекта компоненты</summary>
-        string AddInName = "Moxel.Converter";
+        static string AddInName = "Moxel.Converter";
         //string AddInName = "Таблица";
 
         /// <summary>Указатель на IDispatch</summary>
@@ -61,7 +61,9 @@ namespace Moxel
         protected IStatusLine statusLine;
 
         /// <summary>Сообщения об ошибках 1С</summary>
-        protected IErrorLog errorLog;
+        static protected IErrorLog errorLog;
+
+        static int ObjectCount = 0;
 
         private Type[] allInterfaceTypes;  // Коллекция интерфейсов
         private MethodInfo[] allMethodInfo;  // Коллекция методов
@@ -78,7 +80,7 @@ namespace Moxel
 
         Moxel mxl;
 
-        public void PostException(Exception ex)
+        public static void PostException(Exception ex)
         {
             if (errorLog == null)
                 return;
@@ -93,8 +95,6 @@ namespace Moxel
 
             errorLog.AddError("", ref info);
         }
-
-        static bool isWrapped = false;
 
         public int WrapSaveAs(int doWrap = 1)
         {
@@ -157,8 +157,16 @@ namespace Moxel
         {
             if (mxl != null)
             {
-                mxl.SaveAs(filename, format);
-                return filename;
+                try
+                {
+                    mxl.SaveAs(filename, format);
+                    return filename;
+                }
+                catch (Exception ex)
+                {
+                    PostException(ex);
+                    return null;
+                }
             }
             else
             {
@@ -175,6 +183,7 @@ namespace Moxel
             statusLine = (IStatusLine)connection;
             asyncEvent = (IAsyncEvent)connection;
             errorLog = (IErrorLog)connection;
+            ObjectCount++;
             return HRESULT.S_OK;
         }
 
@@ -186,7 +195,8 @@ namespace Moxel
 
         HRESULT IInitDone.Done()
         {
-            SaveWrapper.Wrap(false);
+            if(--ObjectCount == 0)
+                SaveWrapper.Wrap(false);
             
             if (connect1c != null)
             {

@@ -56,9 +56,12 @@ namespace Moxel
             }
             catch(Exception ex)
             {
-                f.unpatch(); // Обязательно снять перехват
+                
+                f?.unpatch(); // Обязательно снять перехват
                 f = null;
-                result = 0;
+
+                //throw new Exception(ex.Message);
+                result = -1;
             }
 
             return result;
