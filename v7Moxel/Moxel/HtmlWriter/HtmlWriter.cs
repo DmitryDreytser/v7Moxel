@@ -350,7 +350,7 @@ namespace Moxel
                                 if (textsize.Width > Constr.Width)
                                 {
                                     int index = (textsize.Width - Constr.Width) / (textsize.Width / Text.Length);
-                                    if(index > 1)
+                                    if(index > 1 && index < Text.Length)
                                         Text = Text.Insert(Text.Length - index, "<br>");
                                 }
 

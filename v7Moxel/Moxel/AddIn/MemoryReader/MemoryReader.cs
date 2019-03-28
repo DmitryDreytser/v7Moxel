@@ -7,18 +7,50 @@ namespace Moxel
 {
     public class MemoryReader
     {
+        public static Moxel ReadFromCSheetDoc(CSheetDoc SheetDoc)
+        {
+            int Length = SheetDoc.Sheet.m_nCols * SheetDoc.Sheet.m_nRows * 32;
+            CFile f = CFile.Create(Length);
+            try
+            {
+                CArchive Arch = new CArchive(f, SheetDoc);
+                SheetDoc.Serialize(Arch);
+               
+                //byte[] buffer = f.GetBufer();
+                Moxel result = new Moxel(ref f.buffer);
+                f = null;
+
+                return result;
+            }
+            catch (Exception ex)
+            {
+                f = null;
+                throw (ex.InnerException);
+            }
+        }
+
+        public static Moxel ReadFromMemory(IntPtr pSheetDoc)
+        {
+            CSheetDoc SheetDoc = new CSheetDoc(pSheetDoc);
+            return ReadFromCSheetDoc(SheetDoc);
+        }
+
 
         public class CSheetDoc : CObject
         {
+            public CSheet Sheet = null;
+
             MoxelNative.SerializeDelegate _Serialize = MoxelNative.GetSerializer("?Serialize@CSheetDoc@@UAEXAAVCArchive@@@Z"); //CSheetDoc::Serialize(CSheetDoc *this, struct CArchive *Archive)
             public CSheetDoc(IntPtr pMem) : base(pMem)
             {
-
+                Sheet = new CSheet(pMem + 0xB0);
             }
 
             public void Serialize(CArchive Arch)
             {
                _Serialize(this, Arch);
+                Arch.Flush(); // Допишем оставшийся в буфере кусок данных.
+                Arch = null; // И очистим CArchive
             }
         }
 
@@ -26,11 +58,14 @@ namespace Moxel
         {
             MoxelNative.SerializeDelegate _Serialize = MoxelNative.GetSerializer("?Serialize@CSheet@@UAEXAAVCArchive@@@Z"); //CSheet::Serialize(CSheet *this, CArchive *a2)
 
-            public CSheetDoc SheetDoc = null;
+            public int m_nCols = 0;                       //164h
+            public int m_nRows = 0;                   //168h
 
             public CSheet(IntPtr pMem) : base(pMem)
             {
-                SheetDoc = GetMember<CSheetDoc>(0x21c);
+                //SheetDoc = GetMember<CSheetDoc>(0x21c);
+                m_nCols = Marshal.ReadInt32(pMem, 0x164);
+                m_nRows = Marshal.ReadInt32(pMem, 0x168);
             }
 
             public void Serialize(CArchive Arch)
@@ -101,14 +136,19 @@ namespace Moxel
             }
         }
 
-
         public class CTableOutputContext : CObject
         {
-            public CSheet Sheet = null;
+           
+            public CSheetDoc SheetDoc = null;
+            public CSheetDoc SheetTemplate = null;
+            //public CSheetDoc SheetDoc3 = null;
 
             public CTableOutputContext(IntPtr pMem) : base(pMem)
             {
-                Sheet = GetMember<CSheet>(56);
+                SheetDoc = GetMember<CSheetDoc>(0x20);
+                SheetTemplate = GetMember<CSheetDoc>(0x2C);
+                //SheetDoc3 = GetMember<CSheetDoc>(0x88);
+                //Sheet = GetMember<CSheet>(0x38);
             }
         }
 
@@ -204,23 +244,31 @@ namespace Moxel
 
             private static CFileDestructor _CFileDestructor = MFCNative.GetDelegate<CFileDestructor>(665);
 
-            byte[] buffer = new byte[1024];
+            private static CFile__Write OriginalWrite;
+
+            public byte[] buffer = new byte[1024];
             int position = 0;
 
             public byte[] GetBufer()
             {
-                Array.Resize<byte>(ref buffer, position);
                 unpatch();
                 return buffer;
             }
 
             public void Write(IntPtr _this, IntPtr lpBUf, int nCount)
             {
-                if (buffer.Length < position + nCount + 1)
-                    Array.Resize<byte>(ref buffer, (position + nCount) * 2);
+                if (_this == pObject)
+                {
+                    if (buffer.Length < position + nCount + 1)
+                        Array.Resize<byte>(ref buffer, position + nCount + 1);
 
-                Marshal.Copy(lpBUf, buffer, position, nCount);
-                position += nCount;
+                    Marshal.Copy(lpBUf, buffer, position, nCount);
+                    position += nCount;
+                }
+                else
+                {
+                    OriginalWrite(_this, lpBUf, nCount); //На случай записи другого CFile из другого потока.
+                }
             }
 
             public CFile__Write WriteDelegate = null;
@@ -244,9 +292,7 @@ namespace Moxel
                 uint OldProtection;
 
                 WinApi.VirtualProtectEx(Process.GetCurrentProcess().Handle, FuncAddr, new IntPtr(4), 0x40, out OldProtection);
-
                 Marshal.WriteIntPtr(FuncAddr, pWriteDelegate);
-
                 WinApi.VirtualProtectEx(Process.GetCurrentProcess().Handle, FuncAddr, new IntPtr(4), OldProtection, out OldProtection);
 
                 patched = true;
@@ -256,35 +302,42 @@ namespace Moxel
 
             public void unpatch()
             {
+
+                Array.Resize<byte>(ref buffer, position);
+
                 if (!patched)
                     return;
+
                 uint OldProtection;
                 WinApi.VirtualProtectEx(Process.GetCurrentProcess().Handle, FuncAddr, new IntPtr(4), 0x40, out OldProtection);
                 Marshal.WriteIntPtr(FuncAddr, old_Func); // Вернем оригинальную функцию.
                 WinApi.VirtualProtectEx(Process.GetCurrentProcess().Handle, FuncAddr, new IntPtr(4), OldProtection, out OldProtection);
                 hh.Free();
-
                 patched = false;
             }
 
-            public CFile(IntPtr pMem) : base(pMem)
+            public CFile(IntPtr pMem, int bufferLength) : base(pMem)
             {
                 // перехватим CFile::Write()
                 pVTable = Marshal.ReadIntPtr(pMem, 0);
                 old_Func = Marshal.ReadIntPtr(pVTable, 0x40); // CFile::Write находитс по смещение 0x40 от начала таблицы виртуальных функций.
+                OriginalWrite = Marshal.GetDelegateForFunctionPointer<CFile__Write>(old_Func);
                 FuncAddr = new IntPtr((Int64)pVTable + 0x40);
+                buffer = new byte[bufferLength + 1];
                 patch();
             }
 
-            public static CFile FromHFile(IntPtr hFile)
+            public static CFile Create(int bufferLength)
             {
                 IntPtr pMem = Marshal.AllocHGlobal(0x10);
-                return new CFile(_CFile(pMem, hFile));
+                return new CFile(_CFile(pMem, IntPtr.Zero), bufferLength);
             }
+
 
             ~CFile()
             {
                 unpatch();
+                buffer = null;
                 _CFileDestructor(this);
                 Marshal.FreeHGlobal(pObject);
             }
@@ -306,34 +359,7 @@ namespace Moxel
             static CArchiveConstructor _CArchive = MFCNative.GetDelegate<CArchiveConstructor>(273); //??0CArchive@@QAE@PAVCFile@@IHPAX@Z CArchive::CArchive(CFile* pFile, UINT nMode, int nBufSize, void* lpBuf)
             static CArchiveDestructor _CArchiveDestructor = MFCNative.GetDelegate<CArchiveDestructor>(603);
 
-            //[StructLayout(LayoutKind.Sequential, Pack = 1, CharSet = CharSet.Ansi)]
-            //struct CArchiveInternal
-            //{
-            //    IntPtr m_pDocument;
-            //    [MarshalAs( UnmanagedType.Bool)]
-            //    bool m_bForceFlat;
-            //    [MarshalAs(UnmanagedType.Bool)]
-            //    bool m_bDirectBuffer;
-            //    uint m_nObjectSchema;
-            //    [MarshalAs(UnmanagedType.LPStr)]
-            //    string m_strFileName;
-            //    [MarshalAs(UnmanagedType.Bool)]
-            //    bool m_nMode;
-            //    [MarshalAs(UnmanagedType.Bool)]
-            //    bool m_bUserBuf;
-            //    int m_nBufSize;
-            //    IntPtr m_pFile;
-            //    IntPtr m_lpBufCur;
-            //    IntPtr m_lpBufMax;
-            //    IntPtr m_lpBufStart;
-            //    uint m_nMapCount;
-            //    IntPtr m_pLoadArray;
-            //    IntPtr m_pSchemaMap;
-            //    uint m_nGrowSize;
-            //    uint m_nHashSize;
-            //};
-
-            // CArchiveInternal ArchiveStruct;
+            CFile pfile;
 
             public IntPtr pDocument
             {
@@ -347,17 +373,20 @@ namespace Moxel
             enum Mode : uint { store = 0, load = 1, bNoFlushOnDelete = 2, bNoByteSwap = 4 };
 
 
-            public CArchive(CFile pfile, IntPtr CDocument)
+            public CArchive(CFile pfile, CSheetDoc CDocument)
             {
+                int Length = CDocument.Sheet.m_nCols * CDocument.Sheet.m_nRows * 32;
                 pObject = Marshal.AllocHGlobal(0x44);
-                pObject = _CArchive(pObject, pfile, Mode.store, 1024 * 4096, IntPtr.Zero);
+                pObject = _CArchive(pObject, pfile, Mode.store, Length, IntPtr.Zero);
+                this.pfile = pfile;
                 pDocument = CDocument;
-                //ArchiveStruct = Marshal.PtrToStructure<CArchiveInternal>(pObject);
             }
 
             public void Flush()
             {
                 flush(this);
+                pfile.unpatch();
+
             }
 
             public static implicit operator IntPtr(CArchive obj)

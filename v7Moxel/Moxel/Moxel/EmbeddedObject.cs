@@ -17,11 +17,11 @@ namespace Moxel
             {
                 int left = 0, top = 0, right = 0, bottom = 0;
 
-                left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 2.8, 0);
-                right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 2.8, 0);
+                left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 3, 0);
+                right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 3, 0);
 
-                top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3 + Picture.dwOffsetTop / 2.8, 0);
-                bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3 + Picture.dwOffsetBottom / 2.8, 0);
+                top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3 + Picture.dwOffsetTop / 3d, 0);
+                bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3 + Picture.dwOffsetBottom / 3d, 0);
 
                 return new Rectangle { X = Math.Min(left, right), Y = Math.Min(top, bottom), Width = Math.Abs(right - left), Height = Math.Abs(bottom - top) };
             }
@@ -33,11 +33,11 @@ namespace Moxel
             {
                 int left = 0, top = 0, right = 0, bottom = 0;
 
-                left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 2.8, 0);
-                right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 2.8, 0);
+                left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 3, 0);
+                right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 3, 0);
 
-                top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3 + Picture.dwOffsetTop / 2.8, 0);
-                bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3 + Picture.dwOffsetBottom / 2.8, 0);
+                top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3d + Picture.dwOffsetTop / 3d, 0);
+                bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3d + Picture.dwOffsetBottom / 3d, 0);
 
                 return new Rectangle { X = left, Y = top, Width = right - left, Height = bottom - top };
             }

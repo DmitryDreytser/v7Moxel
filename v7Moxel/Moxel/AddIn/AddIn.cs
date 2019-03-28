@@ -3,10 +3,6 @@ using System.Runtime.InteropServices;
 using AddIn;
 using System.Reflection;
 using System.Collections;
-using System.ComponentModel;
-using System.IO;
-using static Moxel.MemoryReader;
-using System.Windows.Forms;
 
 namespace Moxel
 {
@@ -20,50 +16,29 @@ namespace Moxel
     }
 
 
-    [ComVisible(true)]
-    [InterfaceType( ComInterfaceType.InterfaceIsIUnknown)]
-    [Guid("1EAE378F-C315-4B49-980C-A9A40792E78C")]
-    internal interface IConverter
+    public abstract class AddIn : IInitDone, ILanguageExtender
     {
-        [Alias("Присоединить")]
-        void Attach(object Table);
-
-        [Alias("ЗагрузитьИзПамяти")]
-        void ReadFromMemory(object Table);
-
-        [Alias("Записать")]
-        string Save(string filename, SaveFormat format);
-
-        [Alias("ПерехватитьЗапись")]
-        int WrapSaveAs(int doWrap = 1);
-    }
-
-
-    [ComVisible(true)]
-    [Guid("2DF0622D-BC0A-4C30-8B7D-ACB66FB837B6")]
-    [ClassInterface(ClassInterfaceType.AutoDual)]
-    [Description("Конвертер MOXEL")]
-    [ProgId("AddIn.Moxel.Converter")]
-    public class Converter : IInitDone, ILanguageExtender, IConverter
-    {
-
         /// <summary>ProgID COM-объекта компоненты</summary>
-        static string AddInName = "Moxel.Converter";
-        //string AddInName = "Таблица";
+        string AddInName
+        {
+            get
+            {
+                return this.GetType().GetCustomAttribute<ProgIdAttribute>().Value.Replace("AddIn.", "");
+            }
+        }
+        
 
         /// <summary>Указатель на IDispatch</summary>
-        protected object connect1c;
+        static protected dynamic connect1c;
 
         /// <summary>Вызов событий 1С</summary>
-        protected IAsyncEvent asyncEvent;
+        static protected IAsyncEvent asyncEvent;
 
         /// <summary>Статусная строка 1С</summary>
-        protected IStatusLine statusLine;
+        static protected IStatusLine statusLine;
 
         /// <summary>Сообщения об ошибках 1С</summary>
         static protected IErrorLog errorLog;
-
-        static int ObjectCount = 0;
 
         private Type[] allInterfaceTypes;  // Коллекция интерфейсов
         private MethodInfo[] allMethodInfo;  // Коллекция методов
@@ -78,113 +53,64 @@ namespace Moxel
         private Hashtable numberToMethodInfoIdx; // номер метода - индекс в массиве методов
         private Hashtable propertyNumberToPropertyInfoIdx; // номер свойства - индекс в массиве свойств
 
-        Moxel mxl;
+        protected string ErrorDescription = null;
 
-        public static void PostException(Exception ex)
+        protected abstract HRESULT OnRegister();
+        protected abstract void OnInit();
+        protected abstract void OnDone();
+
+        static int refCount = 0;
+
+
+        static void StatusLine(string message)
         {
-            if (errorLog == null)
+            if (statusLine != null)
+                statusLine.SetStatusLine(message);
+        }
+
+
+        private static void ExcelWriter_onProgress(int progress)
+        {
+            StatusLine($"{progress:D2}%");
+        }
+
+        public void PostException(Exception ex)
+        {
+
+            if (connect1c == null)
                 return;
 
-            var info = new System.Runtime.InteropServices.ComTypes.EXCEPINFO
-            {
-                wCode = 1006,
-                bstrDescription = $"{AddInName}: ошибка {ex.GetType()} : {ex.Message}", 
-                bstrSource = AddInName, 
-                scode = 1
-            };
+            object[] param = { 1006, AddInName, ex.Message, 1};
 
-            errorLog.AddError("", ref info);
+            var tt = connect1c.GetType().InvokeMember("AddError", BindingFlags.InvokeMethod, null, connect1c, param);
         }
-
-        public int WrapSaveAs(int doWrap = 1)
-        {
-           return  SaveWrapper.Wrap(doWrap == 1);
-        }
-
-
-        public void ReadFromMemory(object Table)
-        {
-            try
-            {
-                CTableOutputContext TableObject = CObject.FromComObject<CTableOutputContext>(Table);
-                var Sheet = TableObject.Sheet;
-
-                CFile f = CFile.FromHFile(IntPtr.Zero);
-                CArchive Arch = new CArchive(f, Sheet.SheetDoc);
-                Sheet.SheetDoc.Serialize(Arch);
-                Arch.Flush();
-                Arch = null;
-                byte[] buffer = f.GetBufer();
-                f = null;
-
-                mxl = new Moxel(ref buffer);
-            }
-            catch (Exception ex)
-            {
-                PostException(ex.InnerException);
-                while (Marshal.ReleaseComObject(Table) > 0) { }
-                Marshal.FinalReleaseComObject(Table);
-            }
-        }
-
-
-
-        public void Attach(object Table)
-        {
-            try
-            {
-                string tempfile = Path.GetTempFileName();
-                File.Delete(tempfile);
-                tempfile += ".mxl";
-                object[] param = { tempfile, "mxl" };
-                var tt = Table.GetType().InvokeMember("Write", BindingFlags.InvokeMethod, null, Table, param);
-
-                if (File.Exists(tempfile))
-                    mxl = new Moxel(tempfile);
-
-                File.Delete(tempfile);
-
-            }
-            catch (Exception ex)
-            {
-                PostException(ex);
-                while (Marshal.ReleaseComObject(Table) > 0) { }
-                Marshal.FinalReleaseComObject(Table);
-            }
-        }
-
-        public string Save(string filename, SaveFormat format)
-        {
-            if (mxl != null)
-            {
-                try
-                {
-                    mxl.SaveAs(filename, format);
-                    return filename;
-                }
-                catch (Exception ex)
-                {
-                    PostException(ex);
-                    return null;
-                }
-            }
-            else
-            {
-                PostException(new Exception("Таблица не загружена."));
-                return null;
-            }
-        }
-
 
         #region IInitDone
-        HRESULT IInitDone.Init([MarshalAs(UnmanagedType.IDispatch)] object connection)
+        HRESULT IInitDone.Init([MarshalAs(UnmanagedType.IDispatch)] dynamic connection)
         {
-            connect1c = connection;
-            statusLine = (IStatusLine)connection;
-            asyncEvent = (IAsyncEvent)connection;
-            errorLog = (IErrorLog)connection;
-            ObjectCount++;
-            return HRESULT.S_OK;
+            try
+            {
+                connect1c = connection;
+                if (statusLine == null)
+                {
+                    statusLine = (IStatusLine)connection;
+                    ExcelWriter.onProgress += ExcelWriter_onProgress;
+                }
+
+                asyncEvent = (IAsyncEvent)connection;
+
+                if(errorLog == null)
+                    errorLog = (IErrorLog)connection;
+
+                OnInit();
+                refCount++;
+                return HRESULT.S_OK;
+            }
+            catch
+            {
+                return HRESULT.E_FAIL;
+            }
+
         }
 
         HRESULT IInitDone.GetInfo([MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] info)
@@ -195,75 +121,101 @@ namespace Moxel
 
         HRESULT IInitDone.Done()
         {
-            if(--ObjectCount == 0)
-                SaveWrapper.Wrap(false);
-            
-            if (connect1c != null)
+
+            OnDone();
+
+            if (--refCount == 0)
             {
-                while (Marshal.ReleaseComObject(asyncEvent) > 0) { };
-                Marshal.FinalReleaseComObject(asyncEvent);
-                asyncEvent = null;
 
-                while (Marshal.ReleaseComObject(statusLine) > 0) { };
-                Marshal.FinalReleaseComObject(statusLine);
-                statusLine = null;
+                if (statusLine != null)
+                {
+                    while (Marshal.ReleaseComObject(statusLine) > 0) { };
+                    Marshal.FinalReleaseComObject(statusLine);
+                    statusLine = null;
+                }
 
-                while (Marshal.ReleaseComObject(errorLog) > 0) { };
-                Marshal.FinalReleaseComObject(errorLog);
-                statusLine = null;
+                if (errorLog != null)
+                {
+                    while (Marshal.ReleaseComObject(errorLog) > 0) { };
+                    Marshal.FinalReleaseComObject(errorLog);
+                    errorLog = null;
+                }
 
-                while (Marshal.ReleaseComObject(connect1c) > 0) { };
-                Marshal.FinalReleaseComObject(connect1c);
-                connect1c = null;
+                if (asyncEvent != null)
+                {
+                    while (Marshal.ReleaseComObject(asyncEvent) > 0) { };
+                    Marshal.FinalReleaseComObject(asyncEvent);
+                    asyncEvent = null;
+                }
+
+                if (connect1c != null)
+                {
+                    while (Marshal.ReleaseComObject(connect1c) > 0) { };
+                    Marshal.FinalReleaseComObject(connect1c);
+                    connect1c = null;
+                }
+
+                GC.Collect();
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
             }
+
             Marshal.CleanupUnusedObjectsInCurrentContext();
-
-            mxl = null;
-
-            GC.Collect();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
             return HRESULT.S_OK;
         }
         #endregion
 
-
-#region ILAnguageExtender
-        HRESULT ILanguageExtender.CallAsFunc(int methodNum, [MarshalAs(UnmanagedType.Struct)] ref object retValue, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] pParams)
+        ~AddIn()
         {
+
+
+        }
+
+
+        #region ILAnguageExtender
+        HRESULT ILanguageExtender.CallAsFunc(int methodNum, [MarshalAs(UnmanagedType.Struct)] ref object retValue, [In, Out, MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] pParams)
+        {
+            retValue = "";
             try
             {
                 retValue = allMethodInfo[(int)numberToMethodInfoIdx[methodNum]].Invoke(this, pParams);
+                return HRESULT.S_OK;
             }
             catch (Exception e)
             {
-                PostException(e);
+                ErrorDescription = e.InnerException.Message;
+                pParams = null;
+                return HRESULT.E_FAIL;
             }
-            return HRESULT.S_OK;
+            
         }
 
-        HRESULT ILanguageExtender.CallAsProc(int methodNum, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref dynamic[] pParams)
+        HRESULT ILanguageExtender.CallAsProc(int methodNum, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] pParams)
         {
             try
             {
                 allMethodInfo[(int)numberToMethodInfoIdx[methodNum]].Invoke(this, pParams);
-                
             }
             catch (Exception e)
             {
-                PostException(e.InnerException);
+                ErrorDescription = e.InnerException.Message;
+                pParams = null;
+                return HRESULT.E_FAIL;
             }
             return HRESULT.S_OK;
         }
 
 
-        int ILanguageExtender.FindMethod([MarshalAs(UnmanagedType.BStr)] string methodName)
+        HRESULT ILanguageExtender.FindMethod([MarshalAs(UnmanagedType.BStr)] string methodName, ref int methodNUm)
         {
             if (nameToNumber.ContainsKey(methodName.ToUpper()))
-                return (int)nameToNumber[methodName.ToUpper()];
-            else
-            return -1;
-            
+            {
+                methodNUm = (int)nameToNumber[methodName.ToUpper()];
+                return HRESULT.S_OK;
+            }
+
+            methodNUm = -1;
+            return HRESULT.S_FALSE;
         }
 
         HRESULT ILanguageExtender.FindProp([MarshalAs(UnmanagedType.BStr)] string propName, ref Int32 propNum)
@@ -332,7 +284,7 @@ namespace Moxel
 
         public HRESULT GetPropVal(int propNum, [MarshalAs(UnmanagedType.Struct)] ref object propVal)
         {
-            propVal = allPropertyInfo[(int)propertyNumberToPropertyInfoIdx[propNum]].GetValue(this, null);
+            propVal = allPropertyInfo[propNum].GetValue(this, null);
             return HRESULT.S_OK;
         }
 
@@ -360,7 +312,7 @@ namespace Moxel
             return HRESULT.S_OK;
         }
 
-        HRESULT ILanguageExtender.RegisterExtensionAs([MarshalAs(UnmanagedType.BStr)] ref String extensionName)
+        HRESULT ILanguageExtender.RegisterExtensionAs([In, Out, MarshalAs(UnmanagedType.BStr)] ref string extensionName)
         {
             try
             {
@@ -399,6 +351,8 @@ namespace Moxel
                     MethodInfo[] interfaceMethods = interfaceType.GetMethods();
                     foreach (MethodInfo interfaceMethodInfo in interfaceMethods)
                     {
+                        if (interfaceMethodInfo.IsSpecialName)
+                            continue;
                         string alias = ((AliasAttribute)Attribute.GetCustomAttribute(interfaceMethodInfo, typeof(AliasAttribute))).RussianName.ToUpper();
 
                         nameToNumber.Add(interfaceMethodInfo.Name.ToUpper(), Identifier);
@@ -412,20 +366,25 @@ namespace Moxel
                         Identifier++;
                     }
 
+                    Identifier = 0;
                     // Обработка свойств интерфейса
                     PropertyInfo[] interfaceProperties = interfaceType.GetProperties();
                     foreach (PropertyInfo interfacePropertyInfo in interfaceProperties)
                     {
-                        string alias = ((AliasAttribute)Attribute.GetCustomAttribute(interfacePropertyInfo, typeof(AliasAttribute))).RussianName.ToUpper();
+                        string alias = ((AliasAttribute)Attribute.GetCustomAttribute(interfacePropertyInfo, typeof(AliasAttribute))).RussianName;
 
-                        propertyNameToNumber.Add(interfacePropertyInfo.Name, Identifier);
-
-                        propertyNumberToName.Add(Identifier, interfacePropertyInfo.Name);
+                        propertyNameToNumber.Add(interfacePropertyInfo.Name.ToUpper(), Identifier);
 
                         if (!string.IsNullOrWhiteSpace(alias))
-                        {
-                            propertyNameToNumber.Add(alias, Identifier);
-                        }
+                            propertyNameToNumber.Add(alias.ToUpper(), Identifier);
+
+                        if (!string.IsNullOrWhiteSpace(alias))
+                            propertyNumberToName.Add(Identifier, alias);
+                        else
+                            propertyNumberToName.Add(Identifier, interfacePropertyInfo.Name);
+                        
+
+
 
                         Identifier++;
                     }
@@ -461,7 +420,7 @@ namespace Moxel
                             break;
                         }
                     }
-                    if (!found)
+                    if (!found && !propertyNameToNumber.ContainsKey(entry.Value.ToString().ToUpper()))
                         throw new COMException("Свойство " + entry.Value.ToString() + " не реализовано");
                 }
 
@@ -470,12 +429,10 @@ namespace Moxel
             }
             catch (Exception e)
             {
-                PostException(e);
+                return HRESULT.S_FALSE;
             }
 
-            WrapSaveAs(1);
-
-            return HRESULT.S_OK;
+            return OnRegister();
             
         }
 

@@ -11,6 +11,6 @@ namespace AddIn
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     public interface IErrorLog
     {
-        void AddError(String pszPropName, ref System.Runtime.InteropServices.ComTypes.EXCEPINFO pExepInfo);
+        void AddError([MarshalAs(UnmanagedType.LPStr)] string pszPropName, ref System.Runtime.InteropServices.ComTypes.EXCEPINFO pExepInfo);
     }
 }

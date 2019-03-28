@@ -40,5 +40,10 @@ namespace Moxel
         {
             return (ResID >> 4) + 1;
         }
+
+        public static T GetDelegate<T>(string ModuleName, string FuncName)
+        {
+            return Marshal.GetDelegateForFunctionPointer<T>(GetProcAddress(GetModuleHandle(ModuleName), FuncName));
+        }
     }
 }

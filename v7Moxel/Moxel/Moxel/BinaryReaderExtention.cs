@@ -45,9 +45,9 @@ namespace Moxel
                 return (T)Activator.CreateInstance(typeof(T), br, parent);
         }
 
-        public static SerializableDictionary<int, T> ReadDictionary<T>(this BinaryReader br, object parent = null,RequireStruct<T> ignore = null) where T : struct
+        public static Dictionary<int, T> ReadDictionary<T>(this BinaryReader br, object parent = null,RequireStruct<T> ignore = null) where T : struct
         {
-            SerializableDictionary<int, T> result = new SerializableDictionary<int, T>();
+            Dictionary<int, T> result = new Dictionary<int, T>();
             int[] numbers = br.ReadIntArray();
             int length = br.ReadCount();
             foreach (int num in numbers)
@@ -57,9 +57,9 @@ namespace Moxel
             return result;
         }
 
-        public static SerializableDictionary<int, T> ReadDictionary<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class
+        public static Dictionary<int, T> ReadDictionary<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class
         {
-            SerializableDictionary<int, T> result = new SerializableDictionary<int, T>();
+            Dictionary<int, T> result = new Dictionary<int, T>();
             int[] numbers = br.ReadIntArray();
             int length = br.ReadCount();
             foreach (int num in numbers)

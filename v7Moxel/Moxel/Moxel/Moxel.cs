@@ -2,7 +2,6 @@
 using System.Runtime.InteropServices;
 using System.IO;
 using System;
-using System.Xml.Serialization;
 
 namespace Moxel
 {
@@ -12,7 +11,7 @@ namespace Moxel
         Excel = 1,
         Html,
         PDF,
-        XML
+        //XML
     }
 
     [ComVisible(false)]
@@ -54,14 +53,14 @@ namespace Moxel
         /// <summary>
         /// Список шрифтов
         /// </summary>
-        public SerializableDictionary<int, LOGFONT> FontList = new SerializableDictionary<int, LOGFONT>();
+        public Dictionary<int, LOGFONT> FontList = new Dictionary<int, LOGFONT>();
 
         //public FontList FontList;
 
         /// <summary>
         /// Список строк
         /// </summary>
-        public SerializableDictionary<int, string> stringTable = new SerializableDictionary<int, string>();
+        public Dictionary<int, string> stringTable = new Dictionary<int, string>();
         /// <summary>
         /// Верхний колонтитул
         /// </summary>
@@ -75,12 +74,12 @@ namespace Moxel
         /// <summary>
         /// Форматные ячейки колонок
         /// </summary>
-        public SerializableDictionary<int, DataCell> Columns = new SerializableDictionary<int, DataCell>();
+        public Dictionary<int, DataCell> Columns = new Dictionary<int, DataCell>();
 
         /// <summary>
         /// Строки
         /// </summary>
-        public SerializableDictionary<int, MoxelRow> Rows = new SerializableDictionary<int, MoxelRow>();
+        public Dictionary<int, MoxelRow> Rows = new Dictionary<int, MoxelRow>();
 
         /// <summary>
         /// Список встроенных объектов
@@ -219,7 +218,7 @@ namespace Moxel
 
         public void Load(BinaryReader br)
         {
-            stringTable = new SerializableDictionary<int, string>();
+            stringTable = new Dictionary<int, string>();
             br.BaseStream.Seek(0xb, SeekOrigin.Begin);
             Version = br.ReadInt16();
 
@@ -275,22 +274,10 @@ namespace Moxel
                     return HtmlWriter.Save(this, filename);
                 case SaveFormat.PDF:
                     return PDFWriter.Save(this, filename);
-                case SaveFormat.XML:
-                    return this.Save(filename);
                 default:
-                    throw new System.Exception("Формат сохранения не поддерживается.");
+                    throw new Exception("Формат сохранения не поддерживается.");
             }
             
-        }
-
-        private bool Save(string filename)
-        {
-            using (FileStream fs = new FileStream(filename, FileMode.OpenOrCreate, FileAccess.ReadWrite))
-            {
-                XmlSerializer formatter = new XmlSerializer(this.GetType());
-                formatter.Serialize(fs, this);
-            }
-            return true;
         }
     }
 }
