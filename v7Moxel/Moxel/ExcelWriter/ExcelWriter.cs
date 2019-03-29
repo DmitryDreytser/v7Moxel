@@ -54,48 +54,53 @@ namespace Moxel
         static Graphics EmptyGraphics = Graphics.FromHwnd(IntPtr.Zero);
         static float MeasureSymbol( Font font)
         {
-           
             double s1 = EmptyGraphics.MeasureString("0", font).Width;
             double s2 = EmptyGraphics.MeasureString("00", font).Width;
             double y = 2 * s1 - s2;//Ширина интервала между символами
             double x = s1 - 2 * y;//Ширина символа
-            double z = x + y; //Ширина занимаемого места символом в составе строки
+            double z = x + Math.Floor(y); //Ширина занимаемого места символом в составе строки
             return (float) z;
         }
 
         static float MeasureExcelDefaultSymbol()
         {
-            using (Font fn = new Font("Calibri", 11f, FontStyle.Regular))
+            using (Font fn = new Font("Arial", 10f, FontStyle.Regular))
             {
-                return MeasureSymbol(fn) * 15f;
+                return MeasureSymbol(fn);// * UnitsPerPixel;
             }
         }
 
-        static float standard1CSymbol = 105; //Стандартный символ 1С = 105 твипов. Это ширина символа "0" шрифтом Arial, размера 10
+        static Size MeasureString(string text, Font font, int AreaWidth)
+        {
+            Size Constr = new Size { Width = AreaWidth, Height = 0 };
+            return System.Windows.Forms.TextRenderer.MeasureText(text, font, Constr, System.Windows.Forms.TextFormatFlags.WordBreak | System.Windows.Forms.TextFormatFlags.VerticalCenter | System.Windows.Forms.TextFormatFlags.ExpandTabs);
+        }
+
+        static float standard1CSymbol = 105f; //Стандартный символ 1С = 105 твипов. Это ширина символа "0" шрифтом Arial, размера 10
         static float standardExcelSymbol = MeasureExcelDefaultSymbol(); // Стандартный символ Экселя. Шрфт по умолчанию - Calibri, размера 11
         static float SymbolZoomCoefficient = standard1CSymbol / standardExcelSymbol; //Коэффициент преобразования ширины символа для расчета ширины колонки
-
-        static double WidthToExcel(double pt)
+        static float UnitsPerPixel = WinApi.GetUnitsPerPixel();
+        static double MoxelWidthToExcel(double pt)
         {
-            return pt / 8d * SymbolZoomCoefficient + 0.5 / 15 * 8d * SymbolZoomCoefficient;
+            return MoxelWidthToPixels(pt) / standardExcelSymbol;
         }
 
-        static double WidthToPixels(double pt)
+        static double MoxelWidthToPixels(double pt)
         {
-            return pt / 8d * 105d / 15;
+            return pt / 8d * standard1CSymbol / UnitsPerPixel;
         }
 
-        static double HeightToPixels(double pt)
+        static double MoxelHeightToPixels(double pt)
         {
             return pt / 3;
         }
 
-        static double HeightToExcel(double pt)
+        static double MoxelHeightToExcel(double pt)
         {
             return pt / 4;
         }
 
-        static short PixelToHeight(int pixels)
+        static short PixelToMoxelHeight(int pixels)
         {
             return (short)(pixels * 3);
         }
@@ -140,7 +145,7 @@ namespace Moxel
                     if (columnwidth == -1)
                         columnwidth = defcolumnwidth;
 
-                    worksheet.Column(columnNumber + 1).Width = WidthToExcel(columnwidth);
+                    worksheet.Column(columnNumber + 1).Width = MoxelWidthToExcel(columnwidth);
                 }
 
                 foreach (CellsUnion union in moxel.Unions)
@@ -152,7 +157,7 @@ namespace Moxel
                 {
                     int progress = (rowNumber + 1 ) * 100 / moxel.nAllRowCount;
 
-                    onProgress?.Invoke(progress);
+                   // onProgress?.Invoke(progress);
 
                     MoxelRow Row = null;
                     if (moxel.Rows.ContainsKey(rowNumber))
@@ -170,6 +175,7 @@ namespace Moxel
                         else
                             rowHeight = Row.Height;
 
+                        bool MeasureAllROw = false;
 
                         foreach (int columnNumber in Row.Keys)
                         {
@@ -232,8 +238,13 @@ namespace Moxel
 
                                 if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.Control))
                                 {
-                                    if (moxelCell.FormatCell.bControlContent == TextControl.Auto || moxelCell.FormatCell.bControlContent == TextControl.Wrap)
+                                    if (moxelCell.FormatCell.bControlContent == TextControl.Auto)
+                                        if(string.IsNullOrEmpty(Row[columnNumber + 1].Text))
+                                            cell.Style.Alignment.WrapText = false;
+
+                                    if (moxelCell.FormatCell.bControlContent == TextControl.Wrap)
                                         cell.Style.Alignment.WrapText = true;
+
                                     if (moxelCell.FormatCell.bControlContent == TextControl.Cut)
                                     {
                                         cell.Style.Alignment.WrapText = false;
@@ -264,6 +275,7 @@ namespace Moxel
                                             {
                                                 worksheet.Range(rowNumber + 1, 1, rowNumber + 1, moxel.nAllColumnCount).Select();
                                                 worksheet.SelectedRanges.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.CenterContinuous;
+                                                MeasureAllROw = true;
                                                 break;
                                             }
                                         default:
@@ -293,18 +305,26 @@ namespace Moxel
                                 if (AutoHeight)
                                     using (Font fn = new Font(cell.Style.Font.FontName, (float)cell.Style.Font.FontSize, cell.Style.Font.Bold ? FontStyle.Bold : FontStyle.Regular))
                                     {
-                                        SizeF stringSize = EmptyGraphics.MeasureString(Text, fn).ToSize();
-                                        int strings = Text.TrimEnd('\r','\n').Split('\n').Length;
-                                        double AreaWidth = WidthToPixels(moxel.GetWidth(columnNumber, columnNumber + cell.ColumnCount() - 1) + moxel.GetColumnWidth(columnNumber));
+                                        double AreaWidth = 0d;
 
-                                        if (cell.Style.Alignment.WrapText)
-                                        {
-                                            strings = (int)Math.Max(Math.Ceiling(stringSize.Width / AreaWidth), strings);
-                                        }
+                                        if (MeasureAllROw)
+                                            AreaWidth = MoxelWidthToPixels(moxel.GetWidth(0, moxel.nAllColumnCount));
+                                        else
+                                            AreaWidth = MoxelWidthToPixels(moxel.GetWidth(columnNumber, columnNumber + cell.ColumnCount() - 1) + moxel.GetColumnWidth(columnNumber));
 
-                                        int heigth = (int)Math.Ceiling(strings * stringSize.Height / cell.RowCount() / 1.27 * 4); //PixelToHeight((int)Math.Round(strings * stringSize.Height / cell.RowCount())); //* SymbolZoomCoefficient
+                                        SizeF stringSize;
 
-                                        rowHeight = Math.Max(Math.Max(heigth, 45) , rowHeight);
+                                        if (!cell.Style.Alignment.WrapText)
+                                            stringSize = EmptyGraphics.MeasureString(Text, fn);
+                                        else
+                                            stringSize = MeasureString(Text, fn, (int)Math.Round(AreaWidth));
+
+                                        int heigth = (int)Math.Ceiling(stringSize.Height / cell.RowCount() / 1.27 * 4); 
+
+                                        rowHeight = Math.Max(Math.Max(heigth, 45), rowHeight);
+
+                                        if (cell.Style.Alignment.Vertical == XLAlignmentVerticalValues.Bottom)
+                                            cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Justify;
                                     }
                             }
 
@@ -336,7 +356,7 @@ namespace Moxel
                     else
                         rowHeight = 45;
 
-                    worksheet.Row(rowNumber + 1).Height = HeightToExcel(rowHeight);
+                    worksheet.Row(rowNumber + 1).Height = MoxelHeightToExcel(rowHeight);
                 }
 
                 foreach(EmbeddedObject obj in moxel.Objects)

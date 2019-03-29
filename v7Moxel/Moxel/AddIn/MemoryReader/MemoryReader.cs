@@ -396,7 +396,13 @@ namespace Moxel
 
             ~CArchive()
             {
-                _CArchiveDestructor(this);
+                try
+                {
+                    _CArchiveDestructor(this);
+                }
+                catch
+                {
+                }
                 Marshal.FreeHGlobal(this);
             }
         }

@@ -36,6 +36,29 @@ namespace Moxel
         [DllImport("kernel32.dll")]
         public static extern IntPtr LockResource(IntPtr HGlobal);
 
+
+        [DllImport("user32.dll")]
+        public static extern IntPtr GetDC(IntPtr hWnd);
+
+        [DllImport("User32.dll")]
+        public static extern bool ReleaseDC(IntPtr hWnd, IntPtr hDC);
+
+        [DllImport("gdi32.dll")]
+        public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
+
+        const int LOGPIXELSX = 88;
+        const int LOGPIXELSY = 90;
+        const float UNITS_PER_INCH = 1440f;
+
+        public static float GetUnitsPerPixel()
+        {
+            IntPtr hDc = GetDC(IntPtr.Zero);
+            float m_UnitsPerPixel = UNITS_PER_INCH / GetDeviceCaps(hDc, LOGPIXELSX);
+            ReleaseDC(IntPtr.Zero, hDc);
+            return m_UnitsPerPixel;
+
+        }
+
         public static uint MakeIntResource(uint ResID)
         {
             return (ResID >> 4) + 1;
