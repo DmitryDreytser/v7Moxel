@@ -157,7 +157,7 @@ namespace Moxel
                 {
                     int progress = (rowNumber + 1 ) * 100 / moxel.nAllRowCount;
 
-                   // onProgress?.Invoke(progress);
+                    onProgress?.Invoke(progress);
 
                     MoxelRow Row = null;
                     if (moxel.Rows.ContainsKey(rowNumber))

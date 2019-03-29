@@ -5,8 +5,6 @@ VisualStudioVersion = 14.0.25420.1
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "v7Moxel", "v7Moxel\v7Moxel.csproj", "{C896056B-D75B-49E0-9D56-871B75F5DE51}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "pdfjet", "pdfjet\pdfjet.csproj", "{D49ACF93-3E82-4DE4-9117-1C940CD7F2C1}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "MoxelConverter", "MoxelConverter\MoxelConverter.csproj", "{74A03E11-C223-4896-B896-D3F9677E88EA}"
 EndProject
 Global
@@ -25,14 +23,6 @@ Global
 		{C896056B-D75B-49E0-9D56-871B75F5DE51}.Release|Any CPU.Build.0 = Release|Any CPU
 		{C896056B-D75B-49E0-9D56-871B75F5DE51}.Release|x86.ActiveCfg = Release|Any CPU
 		{C896056B-D75B-49E0-9D56-871B75F5DE51}.Release|x86.Build.0 = Release|Any CPU
-		{D49ACF93-3E82-4DE4-9117-1C940CD7F2C1}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{D49ACF93-3E82-4DE4-9117-1C940CD7F2C1}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{D49ACF93-3E82-4DE4-9117-1C940CD7F2C1}.Debug|x86.ActiveCfg = Debug|Any CPU
-		{D49ACF93-3E82-4DE4-9117-1C940CD7F2C1}.Debug|x86.Build.0 = Debug|Any CPU
-		{D49ACF93-3E82-4DE4-9117-1C940CD7F2C1}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{D49ACF93-3E82-4DE4-9117-1C940CD7F2C1}.Release|Any CPU.Build.0 = Release|Any CPU
-		{D49ACF93-3E82-4DE4-9117-1C940CD7F2C1}.Release|x86.ActiveCfg = Release|Any CPU
-		{D49ACF93-3E82-4DE4-9117-1C940CD7F2C1}.Release|x86.Build.0 = Release|Any CPU
 		{74A03E11-C223-4896-B896-D3F9677E88EA}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{74A03E11-C223-4896-B896-D3F9677E88EA}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{74A03E11-C223-4896-B896-D3F9677E88EA}.Debug|x86.ActiveCfg = Debug|Any CPU
@@ -47,5 +37,17 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6D09093E-7254-47D3-B31C-27C45E648AEB}
+	EndGlobalSection
+	GlobalSection(TeamFoundationVersionControl) = preSolution
+		SccNumberOfProjects = 3
+		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
+		SccTeamFoundationServer = http://tfs.siemens.ru:8080/tfs/accounting
+		SccLocalPath0 = .
+		SccProjectUniqueName1 = MoxelConverter\\MoxelConverter.csproj
+		SccProjectName1 = MoxelConverter
+		SccLocalPath1 = MoxelConverter
+		SccProjectUniqueName2 = v7Moxel\\v7Moxel.csproj
+		SccProjectName2 = v7Moxel
+		SccLocalPath2 = v7Moxel
 	EndGlobalSection
 EndGlobal
