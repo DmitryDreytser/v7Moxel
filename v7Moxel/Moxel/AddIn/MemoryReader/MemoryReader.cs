@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
@@ -9,15 +10,14 @@ namespace Moxel
     {
         public static Moxel ReadFromCSheetDoc(CSheetDoc SheetDoc)
         {
-            int Length = SheetDoc.Sheet.m_nCols * SheetDoc.Sheet.m_nRows * 32;
-            CFile f = CFile.Create(Length);
+            CFile f = CFile.Create(SheetDoc.Length);
             try
             {
                 CArchive Arch = new CArchive(f, SheetDoc);
                 SheetDoc.Serialize(Arch);
                
-                //byte[] buffer = f.GetBufer();
                 Moxel result = new Moxel(ref f.buffer);
+
                 f = null;
 
                 return result;
@@ -25,7 +25,7 @@ namespace Moxel
             catch (Exception ex)
             {
                 f = null;
-                throw (ex.InnerException);
+                throw new Exception(ex.Message, ex);
             }
         }
 
@@ -39,11 +39,44 @@ namespace Moxel
         public class CSheetDoc : CObject
         {
             public CSheet Sheet = null;
+            public PageSettings PageSettings = null;
+
+            public int Length
+            {
+                get
+                {
+                    return 
+                        Sheet.m_nCols * Sheet.m_nRows * (Marshal.SizeOf<CSheetFormat>() + 30); //Колонки * строки * размер форматной ячейки + Колонки * строки * 30 символов текста
+                }
+            }
 
             MoxelNative.SerializeDelegate _Serialize = MoxelNative.GetSerializer("?Serialize@CSheetDoc@@UAEXAAVCArchive@@@Z"); //CSheetDoc::Serialize(CSheetDoc *this, struct CArchive *Archive)
+
+            public bool SaveToFile(string FileName)
+            {
+                using (FileStream fs = File.OpenWrite(FileName))
+                {
+                    CFile f = CFile.FromFileStream(fs);
+                    try
+                    {
+                        CArchive Arch = new CArchive(f, this);
+                        Serialize(Arch);
+                        f = null;
+                        return true;
+                    }
+                    catch (Exception ex)
+                    {
+                        f = null;
+                        return false;
+                    }
+                }
+            }
+
             public CSheetDoc(IntPtr pMem) : base(pMem)
             {
                 Sheet = new CSheet(pMem + 0xB0);
+                PageSettings = PageSettings.FromIntPtr(pMem + 0x354);
+                //Debug.WriteLine($"CProfile7: {(pMem + 0x354).ToInt32():X8}");
             }
 
             public void Serialize(CArchive Arch)
@@ -141,14 +174,11 @@ namespace Moxel
            
             public CSheetDoc SheetDoc = null;
             public CSheetDoc SheetTemplate = null;
-            //public CSheetDoc SheetDoc3 = null;
 
             public CTableOutputContext(IntPtr pMem) : base(pMem)
             {
                 SheetDoc = GetMember<CSheetDoc>(0x20);
                 SheetTemplate = GetMember<CSheetDoc>(0x2C);
-                //SheetDoc3 = GetMember<CSheetDoc>(0x88);
-                //Sheet = GetMember<CSheet>(0x38);
             }
         }
 
@@ -327,19 +357,33 @@ namespace Moxel
                 patch();
             }
 
+            public CFile(IntPtr pMem) : base(pMem)
+            {
+                // перехватим CFile::Write()
+                pVTable = Marshal.ReadIntPtr(pMem, 0);
+            }
+
             public static CFile Create(int bufferLength)
             {
                 IntPtr pMem = Marshal.AllocHGlobal(0x10);
                 return new CFile(_CFile(pMem, IntPtr.Zero), bufferLength);
             }
 
+            public static CFile FromFileStream(FileStream stream)
+            {
+                IntPtr pMem = Marshal.AllocHGlobal(0x10);
+                return new CFile(_CFile(pMem, stream.SafeFileHandle.DangerousGetHandle()));
+            }
 
             ~CFile()
             {
                 unpatch();
+                Array.Resize(ref buffer, 0);
                 buffer = null;
                 _CFileDestructor(this);
                 Marshal.FreeHGlobal(pObject);
+                GC.Collect();
+                GC.Collect();
             }
 
         }

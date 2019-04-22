@@ -17,9 +17,8 @@ namespace AddIn
         /// HRESULT SetStatusLine(BSTR bstrStatusLine);
         /// </prototype>
         /// </remarks>
-        void SetStatusLine(
-            [MarshalAs(UnmanagedType.BStr)]String bstrStatusLine
-        );
+        [PreserveSig]
+        Moxel.HRESULT SetStatusLine( [MarshalAs(UnmanagedType.BStr)] string bstrStatusLine);
 
         /// <summary>
         /// Сброс статусной строки
@@ -29,6 +28,7 @@ namespace AddIn
         /// HRESULT ResetStatusLine();
         /// </propotype>
         /// </remarks>
-        void ResetStatusLine();
+        [PreserveSig]
+        Moxel.HRESULT ResetStatusLine();
     }
 }

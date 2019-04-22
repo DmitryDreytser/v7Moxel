@@ -8,8 +8,11 @@ using System.IO;
 
 namespace Moxel
 {
-    class HtmlWriter
+    public class HtmlWriter
     {
+
+        public static event ConverterProgressor onProgress;
+
         public class CSSstyle : Dictionary<string, string>
         {
 
@@ -39,7 +42,7 @@ namespace Moxel
 
         public static string FillTextStyle(DataCell FormatCell, ref CSSstyle CellStyle, ref string FontFamily, ref float FontSize)
         {
-            Cellv6 Format = FormatCell;
+            CSheetFormat Format = FormatCell;
             string Text = string.Empty;
             if (!string.IsNullOrWhiteSpace(FormatCell.Text))
             {
@@ -101,7 +104,7 @@ namespace Moxel
             return Text;
         }
 
-        public static void FillLineStyle(Cellv6 FormatCell, ref CSSstyle LineStyle)
+        public static void FillLineStyle(CSheetFormat FormatCell, ref CSSstyle LineStyle)
         {
             if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
                 switch (FormatCell.bPictureBorderStyle)
@@ -133,7 +136,7 @@ namespace Moxel
             LineStyle.Set("stroke", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
         }
 
-        public static void FillCellStyle(Cellv6 FormatCell, ref CSSstyle CellStyle)
+        public static void FillCellStyle(CSheetFormat FormatCell, ref CSSstyle CellStyle)
         {
             if (FormatCell.bBorderTop == FormatCell.bBorderBottom
                 && FormatCell.bBorderBottom == FormatCell.bBorderLeft
@@ -195,7 +198,7 @@ namespace Moxel
             }
         }
 
-        static string GetSVGFilPattern(Cellv6 formatCell)
+        static string GetSVGFilPattern(CSheetFormat formatCell)
         {
             Color PatternColor = formatCell.PatternColor;
             StringBuilder result = new StringBuilder($"<style type=\"text/css\">\r\n\t#defpattern {{ fill: rgb({PatternColor.R},{PatternColor.G}, {PatternColor.B}); }}\r\n\t</style>");
@@ -244,7 +247,7 @@ namespace Moxel
 
         public static StringBuilder RenderToHtml(Moxel moxel)
         {
-            Cellv6 FormatCell = moxel.DefFormat;
+            CSheetFormat FormatCell = moxel.DefFormat;
             string DefFontName = string.Empty;
             float DefFontSize = 8.0f;
 
@@ -291,6 +294,9 @@ namespace Moxel
 
             for (int rownumber = 0; rownumber < moxel.nAllRowCount; rownumber++)
             {
+                int progress = (rownumber + 1) * 100 / moxel.nAllRowCount;
+                onProgress?.Invoke(progress);
+
                 MoxelRow Row = null;
                 FormatCell = moxel.DefFormat;
                 CSSstyle RowStyle = new CSSstyle();
@@ -325,7 +331,7 @@ namespace Moxel
                     {
                         if (FormatCell.bControlContent == TextControl.Auto || FormatCell.bControlContent == TextControl.Auto)
                         {
-                            if (columnnumber < Row.Count)
+                            if (columnnumber < Row.Count - 1)
                             {
                                 DataCell NextColumnCelll = Row[columnnumber + 1];
                                 if (!string.IsNullOrEmpty(NextColumnCelll.Text) || NextColumnCelll.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
@@ -475,10 +481,7 @@ namespace Moxel
                     SVGPicture.AppendLine($"<rect {LineStyle} x=\"1\" y=\"1\" width=\"{DrawingArea.Width}\" height=\"{DrawingArea.Height}\"/>");
                     SVGPicture.AppendLine("</g>");
                     SVGPicture.AppendLine("</svg>");
-                    //result.AppendLine(SVGPicture.ToString());
-
                     PictureStyle.Set("background-image", $"url(data:image/svg+xml;base64,{Convert.ToBase64String(Encoding.ASCII.GetBytes(SVGPicture.ToString()))})");
-                    //SvgBackground = $"{Convert.ToBase64String(Encoding.ASCII.GetBytes(SVGPicture.ToString()))}";
                 }
 
 

@@ -13,7 +13,7 @@ namespace Moxel
     public class MoxelRow : IDictionary<int, DataCell>
     {
         Moxel Parent = null;
-        public Cellv6 FormatCell;
+        public CSheetFormat FormatCell;
         public Dictionary<int, DataCell> values;
 
         public int Height
@@ -77,7 +77,7 @@ namespace Moxel
                 if (values.ContainsKey(key))
                     return values[key];
                 else
-                    return FormatCell;
+                    return new DataCell(FormatCell, Parent);
             }
 
             set

@@ -15,7 +15,6 @@ namespace Moxel
         }
     }
 
-
     public abstract class AddIn : IInitDone, ILanguageExtender
     {
         /// <summary>ProgID COM-объекта компоненты</summary>
@@ -53,7 +52,14 @@ namespace Moxel
         private Hashtable numberToMethodInfoIdx; // номер метода - индекс в массиве методов
         private Hashtable propertyNumberToPropertyInfoIdx; // номер свойства - индекс в массиве свойств
 
+        public delegate IntPtr dGetMainFrame();
+
+        public static dGetMainFrame GetMainFrame = WinApi.GetDelegate<dGetMainFrame>("frame.dll", "?GetMainFrame@@YAPAVCMDIFrameWnd@@XZ");
+        public static dGetMainFrame GetMainWindow = MFCNative.GetDelegate<dGetMainFrame>(6575); //AfxGetMainWnd
+
+
         protected string ErrorDescription = null;
+        protected string ErrorStackTrace = null;
 
         protected abstract HRESULT OnRegister();
         protected abstract void OnInit();
@@ -61,15 +67,35 @@ namespace Moxel
 
         static int refCount = 0;
 
-
-        static void StatusLine(string message)
+        public static IntPtr Get1CWindow()
         {
-            if (statusLine != null)
-                statusLine.SetStatusLine(message);
+            if (GetMainFrame == null)
+                return IntPtr.Zero;
+
+            return Marshal.ReadIntPtr(GetMainFrame(), 32);
+        }
+
+        public static IntPtr Get1CMDIWindow()
+        {
+            if (GetMainFrame == null)
+                return IntPtr.Zero;
+
+            return Marshal.ReadIntPtr(GetMainFrame(), 192);
+        }
+
+        static IntPtr MainWindow = IntPtr.Zero;
+
+        public static void StatusLine(string message)
+        {
+            if (MainWindow == IntPtr.Zero)
+                MainWindow = Get1CWindow();
+
+            if (MainWindow != IntPtr.Zero)
+                WinApi.SendMessage(Get1CWindow(), 866, 0, message);
         }
 
 
-        private static void ExcelWriter_onProgress(int progress)
+        private static void Writer_onProgress(int progress)
         {
             StatusLine($"{progress:D2}%");
         }
@@ -94,7 +120,9 @@ namespace Moxel
                 if (statusLine == null)
                 {
                     statusLine = (IStatusLine)connection;
-                    ExcelWriter.onProgress += ExcelWriter_onProgress;
+                    ExcelWriter.onProgress += Writer_onProgress;
+                    HtmlWriter.onProgress += Writer_onProgress;
+                    PDFWriter.onProgress += Writer_onProgress;
                 }
 
                 asyncEvent = (IAsyncEvent)connection;
@@ -154,23 +182,16 @@ namespace Moxel
                     Marshal.FinalReleaseComObject(connect1c);
                     connect1c = null;
                 }
-
-                GC.Collect();
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
             }
+
+            GC.Collect();
+            GC.Collect();
+            GC.WaitForPendingFinalizers();
 
             Marshal.CleanupUnusedObjectsInCurrentContext();
             return HRESULT.S_OK;
         }
         #endregion
-
-        ~AddIn()
-        {
-
-
-        }
-
 
         #region ILAnguageExtender
         HRESULT ILanguageExtender.CallAsFunc(int methodNum, [MarshalAs(UnmanagedType.Struct)] ref object retValue, [In, Out, MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] pParams)
@@ -181,9 +202,14 @@ namespace Moxel
                 retValue = allMethodInfo[(int)numberToMethodInfoIdx[methodNum]].Invoke(this, pParams);
                 return HRESULT.S_OK;
             }
+
             catch (Exception e)
             {
-                ErrorDescription = e.InnerException.Message;
+                while (e.InnerException != null)
+                    e = e.InnerException;
+
+                ErrorDescription = e.Message;
+                ErrorStackTrace = e.StackTrace;
                 pParams = null;
                 return HRESULT.E_FAIL;
             }
@@ -341,8 +367,8 @@ namespace Moxel
                       || interfaceType.Name.Equals("IManagedObject")
                       || interfaceType.Name.Equals("IRemoteDispatch")
                       || interfaceType.Name.Equals("IServicedComponentInfo")
-                      || interfaceType.Name.Equals("IInitDone")
-                      || interfaceType.Name.Equals("ILanguageExtender"))
+                      || interfaceType.Name.Equals(nameof(IInitDone))
+                      || interfaceType.Name.Equals(nameof(ILanguageExtender)))
                     {
                         continue;
                     };

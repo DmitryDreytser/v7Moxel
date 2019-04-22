@@ -14,17 +14,14 @@ namespace Moxel
         //XML
     }
 
+    public delegate void ConverterProgressor(int progress);
+
     [ComVisible(false)]
     [Serializable]
-    public partial class Moxel
+    [StructLayout(LayoutKind.Sequential, Pack = 1)]
+    public partial class Moxel: IDisposable
     {
-        const int UNITS_PER_INCH = 1440;
-        const int UNITS_PER_PIXEL = UNITS_PER_INCH / 96;
-        const int LOGPIXELSX = 88;
-        const int LOGPIXELSY = 90;
-        const int MOXEL_UNITS_PER_INCH = 288;
-        const float CoordsCoeff = UNITS_PER_INCH / MOXEL_UNITS_PER_INCH;
-
+        public Dictionary<int, CSheetFormat> FormatsList = new Dictionary<int, CSheetFormat>();  
         /// <summary>
         /// Версия формата
         /// </summary>
@@ -48,7 +45,7 @@ namespace Moxel
         /// <summary>
         /// Формат ячейки по умолчанию для всей таблицы
         /// </summary>
-        public Cellv6 DefFormat;
+        public CSheetFormat DefFormat;
 
         /// <summary>
         /// Список шрифтов
@@ -64,12 +61,12 @@ namespace Moxel
         /// <summary>
         /// Верхний колонтитул
         /// </summary>
-        public DataCell TopColon;
+        public DataCell Header;
 
         /// <summary>
         /// Нижний колонтитул
         /// </summary>
-        public DataCell BottomColon;
+        public DataCell Footer;
 
         /// <summary>
         /// Форматные ячейки колонок
@@ -139,6 +136,29 @@ namespace Moxel
                 width += GetColumnWidth(i);
 
             return width;
+        }
+
+        public int BorderWidth(BorderStyle border)
+        {
+            switch (border)
+            {
+                case BorderStyle.ThinDashedLong:
+                case BorderStyle.ThinDashedShort:
+                case BorderStyle.ThinDotted:
+                case BorderStyle.ThinGrayDotted:
+                case BorderStyle.ThinSolid:
+                    return  1;
+                case BorderStyle.MediumDashed:
+                case BorderStyle.MediumSolid:
+                    return 2;
+                    break;
+                case BorderStyle.ThickSolid:
+                    return 3;
+                case BorderStyle.Double:
+                    return 4;
+                default:
+                    return 0;
+            }
         }
 
         public int GetRowHeight(int RowNumber)
@@ -235,8 +255,8 @@ namespace Moxel
             foreach (int num in strnums)
                 stringTable.Add(num, br.ReadCString());
 
-            TopColon = br.Read<DataCell>(this);
-            BottomColon = br.Read<DataCell>(this);
+            Header = br.Read<DataCell>(this);
+            Footer = br.Read<DataCell>(this);
 
             Columns = br.ReadDictionary<DataCell>(this);
             Rows = br.ReadDictionary<MoxelRow>(this);
@@ -244,24 +264,14 @@ namespace Moxel
             Unions = br.ReadList<CellsUnion>();
             VerticalSections = br.ReadList<Section>();
             HorisontalSections = br.ReadList<Section>();
-            HorisontalPageBreaks = br.ReadIntArray();
             VerticalPageBreaks = br.ReadIntArray();
+            HorisontalPageBreaks = br.ReadIntArray();
             AreaNames = br.ReadList<MoxelArea>();
         }
 
          ~Moxel()
         {
-            stringTable = null;
-            FontList = null;
-            Columns = null;
-            Rows = null;
-            Objects = null;
-            Unions = null;
-            VerticalSections = null;
-            HorisontalSections = null;
-            HorisontalPageBreaks = null;
-            VerticalPageBreaks = null;
-            AreaNames = null;
+
         }
 
         public bool SaveAs(string filename, SaveFormat format)
@@ -278,6 +288,30 @@ namespace Moxel
                     throw new Exception("Формат сохранения не поддерживается.");
             }
             
+        }
+
+        public void Dispose()
+        {
+            Dispose(true);
+        }
+
+        void Dispose(bool disposing)
+        {
+            if(disposing)
+            {
+                FormatsList = null;
+                stringTable = null;
+                FontList = null;
+                Columns = null;
+                Rows = null;
+                Objects = null;
+                Unions = null;
+                VerticalSections = null;
+                HorisontalSections = null;
+                HorisontalPageBreaks = null;
+                VerticalPageBreaks = null;
+                AreaNames = null;
+            }
         }
     }
 }

@@ -13,8 +13,7 @@ namespace Moxel
 
         public static SerializeDelegate GetSerializer(string EntryPoint)
         {
-            IntPtr ProcAddress = WinApi.GetProcAddress(hMoxel, EntryPoint);
-            return Marshal.GetDelegateForFunctionPointer<SerializeDelegate>(ProcAddress);
+            return GetDelegate<SerializeDelegate>(EntryPoint);
         }
 
         public static T GetDelegate<T>(string FuncName)

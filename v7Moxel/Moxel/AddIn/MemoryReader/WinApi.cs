@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
+using System.Text;
 
 namespace Moxel
 {
@@ -43,6 +44,23 @@ namespace Moxel
         [DllImport("User32.dll")]
         public static extern bool ReleaseDC(IntPtr hWnd, IntPtr hDC);
 
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, StringBuilder lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, [MarshalAs(UnmanagedType.LPWStr)] string lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, int wParam, [MarshalAs(UnmanagedType.LPStr)] string lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, int wParam, ref IntPtr lParam);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, int wParam, IntPtr lParam);
+
+
         [DllImport("gdi32.dll")]
         public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
 
@@ -67,6 +85,11 @@ namespace Moxel
         public static T GetDelegate<T>(string ModuleName, string FuncName)
         {
             return Marshal.GetDelegateForFunctionPointer<T>(GetProcAddress(GetModuleHandle(ModuleName), FuncName));
+        }
+
+        public static T GetDelegate<T>(string ModuleName, int FuncOrdinal)
+        {
+            return Marshal.GetDelegateForFunctionPointer<T>(GetProcAddress(GetModuleHandle(ModuleName), FuncOrdinal));
         }
     }
 }

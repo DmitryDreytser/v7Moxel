@@ -8,14 +8,14 @@ using System.IO;
 using System.Drawing.Imaging;
 using ClosedXML.Excel.Drawings;
 using System.Collections.Generic;
+using System.Windows.Forms.VisualStyles;
 
 namespace Moxel
 {
     public static class ExcelWriter
     {
-        public delegate void ExcelConverterProgressor(int progress);
-
-        public static event ExcelConverterProgressor onProgress;
+        public static event ConverterProgressor onProgress;
+        public static PageSettings PageSettings = null;
 
         static double PixelHeightToExcel(double pixels)
         {
@@ -58,16 +58,13 @@ namespace Moxel
             double s2 = EmptyGraphics.MeasureString("00", font).Width;
             double y = 2 * s1 - s2;//Ширина интервала между символами
             double x = s1 - 2 * y;//Ширина символа
-            double z = x + Math.Floor(y); //Ширина занимаемого места символом в составе строки
+            double z = x + y; //Ширина занимаемого места символом в составе строки
             return (float) z;
         }
 
         static float MeasureExcelDefaultSymbol()
         {
-            using (Font fn = new Font("Arial", 10f, FontStyle.Regular))
-            {
-                return MeasureSymbol(fn);// * UnitsPerPixel;
-            }
+            return (float)Math.Floor(EmptyGraphics.MeasureString("0", DefaultExcelFont).Width);
         }
 
         static Size MeasureString(string text, Font font, int AreaWidth)
@@ -77,12 +74,19 @@ namespace Moxel
         }
 
         static float standard1CSymbol = 105f; //Стандартный символ 1С = 105 твипов. Это ширина символа "0" шрифтом Arial, размера 10
-        static float standardExcelSymbol = MeasureExcelDefaultSymbol(); // Стандартный символ Экселя. Шрфт по умолчанию - Calibri, размера 11
-        static float SymbolZoomCoefficient = standard1CSymbol / standardExcelSymbol; //Коэффициент преобразования ширины символа для расчета ширины колонки
+        static float standardExcelSymbol = 12;   // Стандартный символ Экселя в пикселях. Шрифт по умолчанию - Calibri, размера 11
         static float UnitsPerPixel = WinApi.GetUnitsPerPixel();
+
+        static Font DefaultExcelFont = null;
+
         static double MoxelWidthToExcel(double pt)
         {
-            return MoxelWidthToPixels(pt) / standardExcelSymbol;
+            double Pixels = MoxelWidthToPixels(pt);
+
+            if (Pixels <= standardExcelSymbol)
+                return Pixels / standardExcelSymbol;
+            else
+                return 1 + (Pixels - standardExcelSymbol) / standard1CSymbol * UnitsPerPixel;
         }
 
         static double MoxelWidthToPixels(double pt)
@@ -117,6 +121,14 @@ namespace Moxel
             int RowCount = 0;
             using (var workbook = new XLWorkbook(XLEventTracking.Disabled))
             {
+                DefaultExcelFont = new Font(workbook.Style.Font.FontName, (float)workbook.Style.Font.FontSize);
+                standardExcelSymbol = MeasureExcelDefaultSymbol();
+
+                workbook.Style.Font.FontName = "Arial";
+                workbook.Style.Font.FontSize = 8;
+
+                var worksheet = workbook.Worksheets.Add("Лист1");
+
                 int DefFontSize = 8;
                 string defFontName = "Arial";
 
@@ -128,7 +140,6 @@ namespace Moxel
                 if (moxel.FontList.Count == 1)
                     defFontName = moxel.FontList.First().Value.lfFaceName;
 
-                var worksheet = workbook.Worksheets.Add("Лист1"); 
                 for (int columnNumber = 0; columnNumber < moxel.nAllColumnCount; columnNumber++)
                 {
                     double defcolumnwidth = 40.0d;
@@ -153,11 +164,17 @@ namespace Moxel
                     worksheet.Range(union.dwTop + 1, union.dwLeft + 1, union.dwBottom + 1, union.dwRight + 1).Merge();
                 }
 
+                int progress = 0;
+                int progressor = 0;
+
                 for (int rowNumber = 0; rowNumber < moxel.nAllRowCount; rowNumber++)
                 {
-                    int progress = (rowNumber + 1 ) * 100 / moxel.nAllRowCount;
-
-                   // onProgress?.Invoke(progress);
+                    progress = (rowNumber + 1 ) * 100 / moxel.nAllRowCount;
+                    if (progressor != progress)
+                    {
+                        progressor = progress;
+                        onProgress?.Invoke(progressor);
+                    }
 
                     MoxelRow Row = null;
                     if (moxel.Rows.ContainsKey(rowNumber))
@@ -191,10 +208,12 @@ namespace Moxel
                             if (!string.IsNullOrEmpty(Text))
                             {
                                 cell.SetValue<string>(Text.TrimEnd('\r', '\n'));
+                                cell.Style.Alignment.WrapText = false;
 
                                 Char separator = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.CurrencyDecimalSeparator[0];
 
                                 int Dots = Text.ToCharArray().Count(t => t == '.');
+                                int Commas = Text.ToCharArray().Count(t => t == ',');
 
                                 if (Dots > 0)
                                 {
@@ -210,6 +229,25 @@ namespace Moxel
                                         }
                                     }
                                 }
+                                else
+
+                                    if (Commas > 0)
+                                    {
+                                        if (Commas == 1)
+                                        {
+                                            double val = 0;
+
+                                            if (Double.TryParse(Text.Replace(" ", "").Replace(',', separator), out val))
+                                            {
+                                                cell.Value = val;
+                                                cell.DataType = XLDataType.Number;
+                                                cell.Style.NumberFormat.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2WithSeparator);
+                                            }
+                                        }
+                                    }
+
+
+
 
                                 if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontName))
                                     cell.Style.Font.FontName = moxel.FontList[moxelCell.FormatCell.wFontNumber].lfFaceName;
@@ -241,6 +279,8 @@ namespace Moxel
                                     if (moxelCell.FormatCell.bControlContent == TextControl.Auto)
                                         if(string.IsNullOrEmpty(Row[columnNumber + 1].Text))
                                             cell.Style.Alignment.WrapText = false;
+                                        else
+                                            cell.Style.Alignment.WrapText = true;
 
                                     if (moxelCell.FormatCell.bControlContent == TextControl.Wrap)
                                         cell.Style.Alignment.WrapText = true;
@@ -323,7 +363,7 @@ namespace Moxel
 
                                         rowHeight = Math.Max(Math.Max(heigth, 45), rowHeight);
 
-                                        if (cell.Style.Alignment.Vertical == XLAlignmentVerticalValues.Bottom)
+                                        if (cell.Style.Alignment.Vertical == XLAlignmentVerticalValues.Bottom && cell.Style.Alignment.WrapText && (moxelCell.TextOrientation == 0))
                                             cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Justify;
                                     }
                             }
@@ -383,7 +423,7 @@ namespace Moxel
                                     var topLeftCell = worksheet.Cell(obj.Picture.dwRowStart + 1, obj.Picture.dwColumnStart + 1);
                                     picture.Placement = XLPicturePlacement.Move;
                                     picture.Width = obj.ImageArea.Width;
-                                    picture.Height = obj.ImageArea.Height;
+                                    picture.Height = obj.pObject.Height / zoomfactor;
                                     picture.MoveTo(topLeftCell, obj.Picture.dwOffsetLeft / 3, obj.Picture.dwOffsetTop / 3);
 
 
@@ -408,6 +448,38 @@ namespace Moxel
                       }
                 }
 
+                if(!string.IsNullOrEmpty(moxel.Header.Text))
+                    worksheet.PageSetup.Header.Left.AddText(moxel.Header.Text.Replace("#D","&D").Replace("#T", "&T").Replace("#P", "&P").Replace("#Q", "&N"));
+
+                if (!string.IsNullOrEmpty(moxel.Footer.Text))
+                    worksheet.PageSetup.Footer.Left.AddText(moxel.Footer.Text.Replace("#D", "&D").Replace("#T", "&T").Replace("#P", "&P").Replace("#Q", "&N"));
+
+                foreach (int br in moxel.HorisontalPageBreaks)
+                    worksheet.PageSetup.AddHorizontalPageBreak(br + 1);
+
+                foreach (int br in moxel.VerticalPageBreaks)
+                    worksheet.PageSetup.AddVerticalPageBreak(br + 1);
+
+                if (PageSettings != null)
+                {
+
+                    worksheet.PageSetup.SetPageOrientation((XLPageOrientation)PageSettings.Get(PageSettings.OptionType.Orient));
+                    worksheet.PageSetup.SetPaperSize((XLPaperSize)PageSettings.Get(PageSettings.OptionType.Paper));
+
+                    if ((int)PageSettings.Get(PageSettings.OptionType.FitToPage) == 1)
+                        worksheet.PageSetup.FitToPages(1, 0);
+                    else
+                        worksheet.PageSetup.SetScale((int)PageSettings.Get(PageSettings.OptionType.Scale));
+
+                    worksheet.PageSetup.BlackAndWhite = (int)PageSettings.Get(PageSettings.OptionType.BlackAndWhite) == 1;
+
+                    worksheet.PageSetup.Margins.Bottom = (int)PageSettings.Get(PageSettings.OptionType.Bottom) / 25.4;
+                    worksheet.PageSetup.Margins.Left = (int)PageSettings.Get(PageSettings.OptionType.Left) / 25.4;
+                    worksheet.PageSetup.Margins.Right = (int)PageSettings.Get(PageSettings.OptionType.Right) / 25.4;
+                    worksheet.PageSetup.Margins.Top = (int)PageSettings.Get(PageSettings.OptionType.Top) / 25.4;
+                    worksheet.PageSetup.Margins.Footer = 0;
+                    worksheet.PageSetup.Margins.Header = 0;
+                }
                 workbook.SaveAs(filename);
             }
             

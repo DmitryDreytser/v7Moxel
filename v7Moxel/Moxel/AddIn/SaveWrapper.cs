@@ -3,10 +3,12 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using static Moxel.MemoryReader;
 
 namespace Moxel
@@ -33,17 +35,62 @@ namespace Moxel
 
         //SavetoExcel = 0x5B420
         //SavetoHtml = 0x5B760
+        public static string utilPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "TaskRunnner.exe");
 
+        public static int SaveExternal(string MoxelName, string FileName)
+        {
+            using (Process ExCon = new Process())
+            {
+                ExCon.StartInfo = new ProcessStartInfo { FileName = utilPath, Arguments = $"\"{MoxelName}\" \"{FileName}\"", CreateNoWindow = true, RedirectStandardOutput = true, UseShellExecute = false };
+                ExCon.OutputDataReceived += ExCon_OutputDataReceived;
+                ExCon.Start();
+                ExCon.BeginOutputReadLine();
 
+                while (!ExCon.HasExited)
+                {
+                    ExCon.WaitForExit(500);
+                    Application.RaiseIdle(EventArgs.Empty);
+                }
+
+                if (ExCon.ExitCode == 1 && File.Exists(FileName))
+                    return ExCon.ExitCode;
+                else
+                    return 0;
+            }
+
+        }
+
+        private static void ExCon_OutputDataReceived(object sender, DataReceivedEventArgs e)
+        {
+            Converter.StatusLine($"{e.Data:D2}%");
+        }
 
         static int SaveToExcel(IntPtr pSheetDoc, IntPtr SheetGDI, string FileName)
         {
 
-            Moxel mxl;
+            Converter.mxl = null;
 
             try
             {
-                mxl = ReadFromMemory(pSheetDoc);
+                CSheetDoc SheetDoc = new CSheetDoc(pSheetDoc);
+                if (SheetDoc.Length > 1024 * 1024 * 2) //Если примерный размер таблицы > 2Мб тогда конвертируем в отдельном процессе, чтобы не словить OutOfMemory
+                {
+                    string tmpFileName = Path.GetTempFileName();
+                    SheetDoc.SaveToFile(tmpFileName);
+
+                    if(SaveExternal(tmpFileName, FileName) == 1)
+                    {
+                        File.Delete(tmpFileName);
+                        return 1;
+                    }
+                    else
+                        RaiseExtRuntimeError?.Invoke($"Ошибка сохранения таблицы в XLSX.: ошибка внешнего конвертера", 0);
+                }
+                else
+                {
+                    Converter.mxl = ReadFromCSheetDoc(SheetDoc);
+                    ExcelWriter.PageSettings = SheetDoc.PageSettings;
+                }
             }
             catch (Exception ex)
             {
@@ -51,28 +98,31 @@ namespace Moxel
                 return 0;
             }
 
-            if (mxl != null)
+            if (Converter.mxl != null)
             {
                 try
                 {
                     if (FileName.EndsWith(".xlsx"))
-                        mxl.SaveAs(FileName, SaveFormat.Excel);
+                        Converter.mxl.SaveAs(FileName, SaveFormat.Excel);
                     else
                     {
                         if (FileName.EndsWith(".xls"))
                         {
-                            mxl.SaveAs(FileName + "x", SaveFormat.Excel);
+                            Converter.mxl.SaveAs(FileName + "x", SaveFormat.Excel);
                             File.Move(FileName + "x", FileName);
                         }
                         else
-                            mxl.SaveAs(FileName + ".xlsx", SaveFormat.Excel);
+                            Converter.mxl.SaveAs(FileName + ".xlsx", SaveFormat.Excel);
                     }
-                    mxl = null;
+                    Converter.mxl = null;
+                    GC.Collect();
+                    GC.Collect();
+                    GC.WaitForPendingFinalizers();
                     return 1;
                 }
                 catch (Exception ex)
                 {
-                    mxl = null;
+                    Converter.mxl = null;
                     GC.Collect();
                     GC.Collect();
                     GC.WaitForPendingFinalizers();
@@ -81,7 +131,10 @@ namespace Moxel
             }
             else
             {
-                mxl = null;
+                Converter.mxl = null;
+                GC.Collect();
+                GC.Collect();
+                GC.WaitForPendingFinalizers();
                 RaiseExtRuntimeError?.Invoke("Ошибка сохранения таблицы в XLSX. Не удалось прочитать таблицу", 0);
             }
             return 0;
@@ -89,11 +142,11 @@ namespace Moxel
 
         static int SaveToHtml(IntPtr pSheetDoc, IntPtr SheetGDI, string FileName)
         {
-            Moxel mxl;
+            Converter.mxl = null;
 
             try
             {
-                mxl = ReadFromMemory(pSheetDoc);
+                Converter.mxl = ReadFromMemory(pSheetDoc);
             }
             catch (Exception ex)
             {
@@ -101,9 +154,9 @@ namespace Moxel
                 return 0;
             }
 
-            if (mxl != null)
+            if (Converter.mxl != null)
             {
-                mxl.SaveAs(FileName, SaveFormat.Html);
+                Converter.mxl.SaveAs(FileName, SaveFormat.Html);
                 return 1;
             }
             else

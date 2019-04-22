@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AddIn;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.IO;
@@ -11,6 +12,8 @@ using static Moxel.MemoryReader;
 
 namespace Moxel
 {
+
+
     [ComVisible(false)]
     //[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     //[Guid("1EAE378F-C315-4B49-980C-A9A40792E78C")]
@@ -33,12 +36,16 @@ namespace Moxel
 
         [Alias("ОписаниеОшибки")]
         string GetErrorDescription();
+
+        [Alias("СтекОшибки")]
+        string GetErrorStackTrace();
     }
 
 
     [ComVisible(true)]
     [Guid("2DF0622D-BC0A-4C30-8B7D-ACB66FB837B6")]
     [ClassInterface(ClassInterfaceType.AutoDual)]
+    [ComDefaultInterface(typeof(IConverter))]
     [Description("Конвертер MOXEL")]
     [ProgId("AddIn.Moxel.Converter")]
     public class Converter : AddIn, IConverter
@@ -56,7 +63,9 @@ namespace Moxel
         public delegate void dCBLModule__Reset(IntPtr _this);
         dCBLModule__Reset OnRuntimeError = WinApi.GetDelegate<dCBLModule__Reset>("blang.dll", "?OnRuntimeError@CBLModule@@UAEHXZ");
 
-        Moxel mxl;
+        public static Moxel mxl;
+        public static PageSettings PageSettings = null;
+        public static CTableOutputContext TableObject = null;
         static int ObjectCount = 0;
 
         public int IsWrapped { get { return SaveWrapper.isWraped ? 1 : 0; } }
@@ -71,14 +80,16 @@ namespace Moxel
         {
             try
             {
-                CTableOutputContext TableObject = CObject.FromComObject<CTableOutputContext>(Table);
-                mxl = ReadFromCSheetDoc(TableObject.SheetDoc);
+                TableObject = CObject.FromComObject<CTableOutputContext>(Table);
+                PageSettings = TableObject.SheetDoc.PageSettings;
+
+                while (Marshal.ReleaseComObject(Table) > 0) { }
+                Marshal.FinalReleaseComObject(Table);
+
             }
             catch (Exception ex)
             {
-                while (Marshal.ReleaseComObject(Table) > 0) { }
-                Marshal.FinalReleaseComObject(Table);
-                throw ex.InnerException;
+                throw new Exception(ex.Message, ex);
             }
         }
 
@@ -99,6 +110,9 @@ namespace Moxel
 
                 File.Delete(tempfile);
 
+                while (Marshal.ReleaseComObject(Table) > 0) { }
+                Marshal.FinalReleaseComObject(Table);
+
             }
             catch (Exception ex)
             {
@@ -110,9 +124,32 @@ namespace Moxel
 
         public string Save(string filename, SaveFormat format)
         {
+            if (mxl == null)
+            {
+                if (TableObject != null)
+                    if (TableObject.SheetDoc.Length < 1024 * 1024 * 2)
+                        mxl = ReadFromCSheetDoc(TableObject.SheetDoc);
+                    else
+                    {
+                        string tmpFileName = Path.GetTempFileName();
+                        TableObject.SheetDoc.SaveToFile(tmpFileName);
+                        if (SaveWrapper.SaveExternal(tmpFileName, filename) == 1)
+                        {
+                            File.Delete(tmpFileName);
+                            return filename;
+                        }
+                        else
+                            throw new Exception("Ошибка записи.");
+                    }
+                else
+                    throw new Exception("Таблица не загружена.");
+
+            }
+
             if (mxl != null)
             {
                 mxl.SaveAs(filename, format);
+                mxl = null;
                 return filename;
             }
             else
@@ -120,13 +157,19 @@ namespace Moxel
                 throw new Exception("Таблица не загружена.");
             }
         }
-        
+
+
+        #region AddIn events
+
         public string GetErrorDescription()
         {
             return this.ErrorDescription;
         }
 
-        #region AddIn events
+        public string GetErrorStackTrace()
+        {
+            return this.ErrorStackTrace;
+        }
 
         protected override void OnInit()
         {
