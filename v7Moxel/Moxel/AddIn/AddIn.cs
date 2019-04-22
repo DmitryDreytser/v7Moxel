@@ -38,24 +38,63 @@ namespace Moxel
 
         /// <summary>Сообщения об ошибках 1С</summary>
         static protected IErrorLog errorLog;
-
-        private Type[] allInterfaceTypes;  // Коллекция интерфейсов
-        private MethodInfo[] allMethodInfo;  // Коллекция методов
-        private PropertyInfo[] allPropertyInfo; // Коллекция свойств
-
-        private Hashtable nameToNumber; // метод - идентификатор
-        private Hashtable numberToName; // идентификатор - метод
-        private Hashtable numberToParams; // количество параметров метода
-        private Hashtable numberToRetVal; // имеет возвращаемое значение (является функцией)
-        private Hashtable propertyNameToNumber; // свойство - идентификатор
-        private Hashtable propertyNumberToName; // идентификатор - свойство
-        private Hashtable numberToMethodInfoIdx; // номер метода - индекс в массиве методов
-        private Hashtable propertyNumberToPropertyInfoIdx; // номер свойства - индекс в массиве свойств
+        /// <summary>
+        /// Коллекция интерфейсов
+        /// </summary>
+        private Type[] allInterfaceTypes;  
+        /// <summary>
+        /// Коллекция методов
+        /// </summary>
+        private MethodInfo[] allMethodInfo; 
+        /// <summary>
+        /// Коллекция свойств
+        /// </summary>
+        private PropertyInfo[] allPropertyInfo;
+        /// <summary>
+        /// метод - идентификатор
+        /// </summary>
+        private Hashtable nameToNumber;
+        /// <summary>
+        /// идентификатор - метод
+        /// </summary>
+        private Hashtable numberToName;  
+        /// <summary>
+        /// количество параметров метода
+        /// </summary>
+        private Hashtable numberToParams;
+        /// <summary>
+        /// имеет возвращаемое значение (является функцией)
+        /// </summary>
+        private Hashtable numberToRetVal;
+        /// <summary>
+        /// свойство - идентификатор
+        /// </summary>
+        private Hashtable propertyNameToNumber;
+        /// <summary>
+        /// идентификатор - свойство
+        /// </summary>
+        private Hashtable propertyNumberToName;
+        /// <summary>
+        /// номер метода - индекс в массиве методов
+        /// </summary>
+        private Hashtable numberToMethodInfoIdx;
+        /// <summary>
+        /// номер свойства - индекс в массиве свойств
+        /// </summary>
+        private Hashtable propertyNumberToPropertyInfoIdx; 
 
         public delegate IntPtr dGetMainFrame();
-
+        
+        /// <summary>
+        /// GetMainFrame
+        /// 
+        /// </summary>
         public static dGetMainFrame GetMainFrame = WinApi.GetDelegate<dGetMainFrame>("frame.dll", "?GetMainFrame@@YAPAVCMDIFrameWnd@@XZ");
-        public static dGetMainFrame GetMainWindow = MFCNative.GetDelegate<dGetMainFrame>(6575); //AfxGetMainWnd
+       
+        /// <summary>
+        /// AfxGetMainWnd
+        /// </summary>
+        public static dGetMainFrame GetMainWindow = MFCNative.GetDelegate<dGetMainFrame>(6575);
 
 
         protected string ErrorDescription = null;
@@ -66,7 +105,10 @@ namespace Moxel
         protected abstract void OnDone();
 
         static int refCount = 0;
-
+        /// <summary>
+        /// Получает главное окно 1С
+        /// </summary>
+        /// <returns>IntPtr hWnd</returns>
         public static IntPtr Get1CWindow()
         {
             if (GetMainFrame == null)
@@ -75,6 +117,10 @@ namespace Moxel
             return Marshal.ReadIntPtr(GetMainFrame(), 32);
         }
 
+        /// <summary>
+        /// Возвращает MDI контейнер 1С
+        /// </summary>
+        /// <returns></returns>
         public static IntPtr Get1CMDIWindow()
         {
             if (GetMainFrame == null)
@@ -85,6 +131,10 @@ namespace Moxel
 
         static IntPtr MainWindow = IntPtr.Zero;
 
+        /// <summary>
+        /// Устанавливает строку статуса. 
+        /// </summary>
+        /// <param name="message"></param>
         public static void StatusLine(string message)
         {
             if (MainWindow == IntPtr.Zero)
@@ -94,7 +144,10 @@ namespace Moxel
                 WinApi.SendMessage(Get1CWindow(), 866, 0, message);
         }
 
-
+        /// <summary>
+        /// Событие изменения прогресса
+        /// </summary>
+        /// <param name="progress"></param>
         private static void Writer_onProgress(int progress)
         {
             StatusLine($"{progress:D2}%");
