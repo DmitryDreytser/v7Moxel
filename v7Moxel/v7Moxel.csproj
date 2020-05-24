@@ -53,7 +53,7 @@
     <StartupObject />
   </PropertyGroup>
   <PropertyGroup>
-    <Win32Resource>C:\Users\z002y8yp\source\repos\DmitryDreytser\v7Moxel\v7Moxel\v7Moxel.res</Win32Resource>
+    <Win32Resource>C:\Users\madda\source\repos\v7Moxel\v7Moxel\v7Moxel.res</Win32Resource>
   </PropertyGroup>
   <PropertyGroup>
     <SignAssembly>false</SignAssembly>
@@ -189,6 +189,9 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+    <None Include="ТестMoxel.ert">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
   <ItemGroup>
     <None Include="App.config">

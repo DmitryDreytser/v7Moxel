@@ -274,6 +274,11 @@ namespace Moxel
                                     if (moxelCell.FormatCell.bFontUnderline)
                                         cell.Style.Font.SetUnderline();
 
+                                if(moxelCell.Text.Contains("\r\n"))
+                                    cell.Style.Alignment.WrapText = true;
+
+
+
                                 if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.Control))
                                 {
                                     if (moxelCell.FormatCell.bControlContent == TextControl.Auto)
