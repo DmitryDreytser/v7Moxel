@@ -189,6 +189,9 @@
       <DependentUpon>Settings.settings</DependentUpon>
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
     </Compile>
+    <None Include="Register.cmd">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <None Include="ТестMoxel.ert">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
