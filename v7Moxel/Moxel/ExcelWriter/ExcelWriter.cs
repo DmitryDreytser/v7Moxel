@@ -408,16 +408,18 @@ namespace Moxel
                 {
                     using (var ms = new MemoryStream())
                     {
-                        int zoomfactor = obj.Picture.dwType == ObjectType.Ole ? zoomfactor = 3: zoomfactor = 1;
+                        var zoomfactor = obj.Picture.dwType == ObjectType.Ole ? 3: 1.5;
                         switch (obj.Picture.dwType)
                         {
                             case ObjectType.Ole:
                                 
                             case ObjectType.Picture:
                                 {
-                                    obj.pObject.Save(ms, ImageFormat.Png);
+                                    ///Странныый косяк с GDI+. Без такого финта выдает неопознанную ошибку
+                                    using (var bmp = new Bitmap(obj.pObject))
+                                        bmp.Save(ms, ImageFormat.Png);
 
-                                    if(obj.ImageArea.Height < obj.pObject.Height / zoomfactor)
+                                    if (obj.ImageArea.Height < obj.pObject.Height / zoomfactor)
                                     {
                                         worksheet.Row(obj.Picture.dwRowEnd).Height += (obj.pObject.Height - obj.ImageArea.Height) / 4;
                                         moxel.Rows[obj.Picture.dwRowEnd - 1].Height = (short)(worksheet.Row(obj.Picture.dwRowEnd).Height * 4);
@@ -428,7 +430,7 @@ namespace Moxel
                                     var topLeftCell = worksheet.Cell(obj.Picture.dwRowStart + 1, obj.Picture.dwColumnStart + 1);
                                     picture.Placement = XLPicturePlacement.Move;
                                     picture.Width = obj.ImageArea.Width;
-                                    picture.Height = obj.pObject.Height / zoomfactor;
+                                    picture.Height = (int)(obj.pObject.Height / zoomfactor);
                                     picture.MoveTo(topLeftCell, obj.Picture.dwOffsetLeft / 3, obj.Picture.dwOffsetTop / 3);
 
 

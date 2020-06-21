@@ -494,7 +494,9 @@ namespace Moxel
                     case ObjectType.Picture:
                         using (MemoryStream ms = new MemoryStream())
                         {
-                            ((Bitmap)obj.pObject)?.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+                            ///Странныый косяк с GDI+. Без такого финта выдает неопознанную ошибку
+                            using (var bmp = new Bitmap(obj.pObject))
+                                bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
                             result.Append($"\t\t\t<img src=\"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}\" width=\"{DrawingArea.Width + BorderWith}\" height=\"{DrawingArea.Height + BorderWith}\">\r\n");
                         }
                         break;
