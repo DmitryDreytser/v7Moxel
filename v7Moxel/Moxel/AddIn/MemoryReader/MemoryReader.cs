@@ -8,6 +8,26 @@ namespace Moxel
 {
     public class MemoryReader
     {
+        public static byte[] ReadMoxel(IntPtr pSheetDoc)
+        {
+            CSheetDoc SheetDoc = new CSheetDoc(pSheetDoc);
+            CFile f = CFile.Create(SheetDoc.Length);
+            try
+            {
+                CArchive Arch = new CArchive(f, SheetDoc);
+                SheetDoc.Serialize(Arch);
+                return f.GetBufer();
+            }
+            catch (Exception ex)
+            {               
+                throw new Exception(ex.Message, ex);
+            }
+            finally
+            {
+                f = null;
+            }
+        }
+
         public static Moxel ReadFromCSheetDoc(CSheetDoc SheetDoc)
         {
             CFile f = CFile.Create(SheetDoc.Length);

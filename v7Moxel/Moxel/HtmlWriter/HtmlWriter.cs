@@ -329,11 +329,11 @@ namespace Moxel
 
                     if (!string.IsNullOrWhiteSpace(Text))
                     {
-                        if (FormatCell.bControlContent == TextControl.Auto || FormatCell.bControlContent == TextControl.Auto)
+                        if (FormatCell.bControlContent == TextControl.Auto)
                         {
                             if (columnnumber < Row.Count - 1)
                             {
-                                DataCell NextColumnCelll = Row[columnnumber + 1];
+                                var NextColumnCelll = Row[columnnumber + 1];
                                 if (!string.IsNullOrEmpty(NextColumnCelll.Text) || NextColumnCelll.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
                                 {
                                     CellStyle.Add("Overflow", "Hidden");
@@ -345,6 +345,18 @@ namespace Moxel
                         {
                             Union = new CellsUnion { dwTop = rownumber, dwBottom = rownumber, dwLeft = 0, dwRight = moxel.nAllColumnCount };
                         }
+
+                        else if (FormatCell.bControlContent == TextControl.Wrap && Union.IsEmpty() && !FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
+                            if (string.IsNullOrEmpty(Row[columnnumber + 1].Text) && !string.IsNullOrEmpty(Row[columnnumber].Text))
+                            {
+                                var cn = columnnumber + 1;
+
+                                while (string.IsNullOrEmpty(Row[cn].Text) && cn < moxel.nAllColumnCount && !Row[cn].FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
+                                    cn++;
+
+                                if (cn > columnnumber + 1)
+                                    Union = new CellsUnion { dwTop = rownumber, dwBottom = rownumber, dwLeft = columnnumber, dwRight = cn };
+                            }
 
                         //if (Row.Height == 0)
                         {

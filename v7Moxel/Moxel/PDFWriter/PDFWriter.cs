@@ -78,11 +78,13 @@ namespace Moxel
             IPechkin pechkin = new SynchronizedPechkin(gc);
             pechkin.ProgressChanged += Pechkin_ProgressChanged;
             byte[] buffer = pechkin.Convert(options, HTML);
+
             if (buffer.Length > 0)
                 File.WriteAllBytes(filename, buffer);
 
             pechkin.ProgressChanged -= Pechkin_ProgressChanged;
             return File.Exists(filename);
+
         }
 
         private static void Pechkin_ProgressChanged(SimplePechkin converter, int progress, string progressDescription)

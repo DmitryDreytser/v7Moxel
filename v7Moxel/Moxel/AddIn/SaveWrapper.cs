@@ -20,49 +20,98 @@ namespace Moxel
         public delegate void dRaiseExtRuntimeError([MarshalAs(UnmanagedType.LPStr)]string ErrorMessage, int Flag);
         public static dRaiseExtRuntimeError RaiseExtRuntimeError = WinApi.GetDelegate<dRaiseExtRuntimeError>("blang.dll", "?RaiseExtRuntimeError@CBLModule@@SAXPBDH@Z");
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
-        public delegate int dSaveToExcel(IntPtr SheetDoc, IntPtr SheetGDI, string FileName);
+        //[UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        //public delegate int dSaveToExcel(IntPtr SheetDoc, IntPtr SheetGDI, string FileName);
 
-        static dSaveToExcel WrapperSaveToExcel = new dSaveToExcel(SaveToExcel);
-        static dSaveToExcel WrapperSaveToHtml = new dSaveToExcel(SaveToHtml);
+        [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        public delegate int dSaveAs(IntPtr SheetDoc, string FileName, int format);
+
+        //static dSaveToExcel WrapperSaveToExcel = new dSaveToExcel(SaveToExcel);
+        //static dSaveToExcel WrapperSaveToHtml = new dSaveToExcel(SaveToHtml);
+
+        static dSaveAs WrapperSaveAs = new dSaveAs(SaveAs);
+
         //static GCHandle wrapper = GCHandle.Alloc(WrapperSaveToExcel);
-        static IntPtr pWrapperSaveToExcel = Marshal.GetFunctionPointerForDelegate<dSaveToExcel>(WrapperSaveToExcel);
-        static IntPtr pWrapperSaveToHtml = Marshal.GetFunctionPointerForDelegate<dSaveToExcel>(WrapperSaveToHtml);
+        //static IntPtr pWrapperSaveToExcel = Marshal.GetFunctionPointerForDelegate<dSaveToExcel>(WrapperSaveToExcel);
+        //static IntPtr pWrapperSaveToHtml = Marshal.GetFunctionPointerForDelegate<dSaveToExcel>(WrapperSaveToHtml);
+
+        static IntPtr pWrapperSaveAs = Marshal.GetFunctionPointerForDelegate<dSaveAs>(WrapperSaveAs);
 
         public static bool isWraped = false;
-        static IntPtr ProcRVASaveToExcel = IntPtr.Zero;
-        static IntPtr ProcRVASaveToHtml = IntPtr.Zero;
+        //static IntPtr ProcRVASaveToExcel = IntPtr.Zero;
+        //static IntPtr ProcRVASaveToHtml = IntPtr.Zero;
+        static IntPtr ProcRVASaveAs = IntPtr.Zero;
 
         //SavetoExcel = 0x5B420
         //SavetoHtml = 0x5B760
+
+        //SaveToText = 0x2500A
         public static string utilPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "TaskRunnner.exe");
 
-        public static int SaveExternal(string MoxelName, string FileName)
+        public static bool CanSaveExternal => File.Exists(utilPath);
+
+        public static async Task<int> SaveExternal(string MoxelName, string FileName)
         {
-            using (Process ExCon = new Process())
+            try
             {
-                ExCon.StartInfo = new ProcessStartInfo { FileName = utilPath, Arguments = $"\"{MoxelName}\" \"{FileName}\"", CreateNoWindow = true, RedirectStandardOutput = true, UseShellExecute = false };
-                ExCon.OutputDataReceived += ExCon_OutputDataReceived;
-                ExCon.Start();
-                ExCon.BeginOutputReadLine();
-
-                while (!ExCon.HasExited)
+                using (Process ExCon = new Process())
                 {
-                    ExCon.WaitForExit(500);
-                    Application.RaiseIdle(EventArgs.Empty);
+                    ExCon.StartInfo = new ProcessStartInfo { FileName = utilPath, Arguments = $"\"{MoxelName}\" \"{FileName}\"", CreateNoWindow = true, RedirectStandardOutput = true, UseShellExecute = false };
+                    ExCon.OutputDataReceived += ExCon_OutputDataReceived;
+                    ExCon.Start();
+                    ExCon.BeginOutputReadLine();
+
+                    //ExCon.WaitForExit();
+
+                    while (!ExCon.HasExited)
+                    {
+                        ExCon.WaitForExit(100);
+                        Application.RaiseIdle(EventArgs.Empty);
+                    }
+
+                    if (ExCon.ExitCode == 1 && File.Exists(FileName))
+                        return ExCon.ExitCode;
+                    else
+                        return 0;
                 }
-
-                if (ExCon.ExitCode == 1 && File.Exists(FileName))
-                    return ExCon.ExitCode;
-                else
-                    return 0;
             }
-
+            catch(Exception e)
+            {
+                return -1;
+            }
         }
 
-        private static void ExCon_OutputDataReceived(object sender, DataReceivedEventArgs e)
+        static string progress;
+
+        private static async void ExCon_OutputDataReceived(object sender, DataReceivedEventArgs e)
         {
-            Converter.StatusLine($"{e.Data:D2}%");
+            Application.RaiseIdle(EventArgs.Empty);
+            if (progress != e.Data)
+            {
+                
+                await Task.Factory.StartNew(() => { Converter.StatusLine($"{e.Data:D2}%"); });
+                progress = e.Data;
+            }
+        }
+
+        static int SaveAs(IntPtr pSheetDoc, string FileName, int format)
+        {
+            
+            switch(format)
+            {
+                case 0:
+                    File.WriteAllBytes(FileName, MemoryReader.ReadMoxel(pSheetDoc));
+                    return 0;
+                case 1:
+                    return SaveToExcel(pSheetDoc, IntPtr.Zero, FileName);
+                case 2:
+                    return SaveToHtml(pSheetDoc, IntPtr.Zero, FileName);
+                case 3:
+                    return SaveToPDF(pSheetDoc, IntPtr.Zero, FileName);
+                default:
+                    return 1;
+            }
+            
         }
 
         static int SaveToExcel(IntPtr pSheetDoc, IntPtr SheetGDI, string FileName)
@@ -73,12 +122,12 @@ namespace Moxel
             try
             {
                 CSheetDoc SheetDoc = new CSheetDoc(pSheetDoc);
-                if (SheetDoc.Length > 1024 * 1024 * 2) //Если примерный размер таблицы > 2Мб тогда конвертируем в отдельном процессе, чтобы не словить OutOfMemory
+                if (SheetDoc.Length > 1024 * 1024 * 2 && CanSaveExternal) //Если примерный размер таблицы > 2Мб тогда конвертируем в отдельном процессе, чтобы не словить OutOfMemory
                 {
                     string tmpFileName = Path.GetTempFileName();
                     SheetDoc.SaveToFile(tmpFileName);
 
-                    if(SaveExternal(tmpFileName, FileName) == 1)
+                    if (SaveExternal(tmpFileName, FileName).Result == 1)
                     {
                         File.Delete(tmpFileName);
                         return 1;
@@ -165,11 +214,47 @@ namespace Moxel
             return 0;
         }
 
+        static int SaveToPDF(IntPtr pSheetDoc, IntPtr SheetGDI, string FileName)
+        {
+            Converter.mxl = null;
+
+            try
+            {
+                Converter.mxl = ReadFromMemory(pSheetDoc);
+            }
+            catch (Exception ex)
+            {
+                RaiseExtRuntimeError?.Invoke("Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу", 0);
+
+                
+                return 0;
+            }
+
+            if (Converter.mxl != null)
+            {
+                try
+                {
+                    Converter.mxl.SaveAs(FileName, SaveFormat.PDF);
+                    return 1;
+                }
+                catch(Exception ex)
+                {
+                    RaiseExtRuntimeError?.Invoke($"Ошибка сохранения таблицы в PDF :{ex.Message}", 0);
+                    return 0;
+                }
+            }
+            else
+                RaiseExtRuntimeError?.Invoke("Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу", 0);
+
+            return 0;
+        }
+
         static int hMoxel = 0;
         static IntPtr hProcess;
 
-        static byte[] OriginalBytesXls = new byte[6];
-        static byte[] OriginalBytesHtml = new byte[6];
+        //static byte[] OriginalBytesXls = new byte[6];
+        //static byte[] OriginalBytesHtml = new byte[6];
+        static byte[] OriginalBytesSaveAs = new byte[6]; 
 
         static byte[] oldRes = new byte[288];
 
@@ -181,11 +266,15 @@ namespace Moxel
             if (hMoxel == 0)
             {
                 hMoxel = WinApi.GetModuleHandle("Moxel.dll").ToInt32();
-                ProcRVASaveToExcel = new IntPtr(hMoxel + 0x5B420);
-                Marshal.Copy(ProcRVASaveToExcel, OriginalBytesXls, 0, 6);
 
-                ProcRVASaveToHtml = new IntPtr(hMoxel + 0x5B760);
-                Marshal.Copy(ProcRVASaveToHtml, OriginalBytesHtml, 0, 6);
+                //ProcRVASaveToExcel = new IntPtr(hMoxel + 0x5B420);
+                //Marshal.Copy(ProcRVASaveToExcel, OriginalBytesXls, 0, 6);
+
+                //ProcRVASaveToHtml = new IntPtr(hMoxel + 0x5B760);
+                //Marshal.Copy(ProcRVASaveToHtml, OriginalBytesHtml, 0, 6);
+
+                ProcRVASaveAs = WinApi.GetProcAddress(WinApi.GetModuleHandle("Moxel.dll"), "?SaveAs@CSheetDoc@@QAEHPBDW4CSheetSaveAsType@@@Z");
+                Marshal.Copy(ProcRVASaveAs, OriginalBytesSaveAs, 0, 6);
             }
 
             uint Protection = 0;
@@ -197,30 +286,42 @@ namespace Moxel
                         return 1;
                     hProcess = Process.GetCurrentProcess().Handle;
 
-                    if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveToExcel, new IntPtr(6), 0x40, out Protection))
+                    if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveAs, new IntPtr(6), 0x40, out Protection))
                     {
-                        #region Подмена сохранения в Excel
-                        Debug.WriteLine($"Патч по адресу {ProcRVASaveToExcel.ToInt32():X8}: PUSH {pWrapperSaveToExcel.ToInt32():X8}; RET;");
-                        Marshal.WriteByte(ProcRVASaveToExcel, 0x68); //PUSH
-                        Marshal.WriteIntPtr(new IntPtr(ProcRVASaveToExcel.ToInt32() + 1), pWrapperSaveToExcel);
-                        Marshal.WriteByte(new IntPtr(ProcRVASaveToExcel.ToInt32() + 5), 0xC3); //RET
-                        WinApi.FlushInstructionCache(hProcess, ProcRVASaveToExcel, new IntPtr(6));
-                        WinApi.VirtualProtectEx(hProcess, ProcRVASaveToExcel, new IntPtr(6), Protection, out Protection);
+                        //#region Подмена сохранения в Excel
+                        //Debug.WriteLine($"Патч по адресу {ProcRVASaveToExcel.ToInt32():X8}: PUSH {pWrapperSaveToExcel.ToInt32():X8}; RET;");
+                        //Marshal.WriteByte(ProcRVASaveToExcel, 0x68); //PUSH
+                        //Marshal.WriteIntPtr(new IntPtr(ProcRVASaveToExcel.ToInt32() + 1), pWrapperSaveToExcel);
+                        //Marshal.WriteByte(new IntPtr(ProcRVASaveToExcel.ToInt32() + 5), 0xC3); //RET
+                        //WinApi.FlushInstructionCache(hProcess, ProcRVASaveToExcel, new IntPtr(6));
+                        //WinApi.VirtualProtectEx(hProcess, ProcRVASaveToExcel, new IntPtr(6), Protection, out Protection);
+                        //#endregion
+
+                        //#region Подмена сохранения в html
+
+                        //if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveToHtml, new IntPtr(6), 0x40, out Protection))
+                        //{
+                        //    Debug.WriteLine($"Патч по адресу {ProcRVASaveToHtml.ToInt32():X8}: PUSH {pWrapperSaveToHtml.ToInt32():X8}; RET;");
+                        //    Marshal.WriteByte(ProcRVASaveToHtml, 0x68); //PUSH
+                        //    Marshal.WriteIntPtr(new IntPtr(ProcRVASaveToHtml.ToInt32() + 1), pWrapperSaveToHtml);
+                        //    Marshal.WriteByte(new IntPtr(ProcRVASaveToHtml.ToInt32() + 5), 0xC3); //RET
+                        //    WinApi.FlushInstructionCache(hProcess, ProcRVASaveToHtml, new IntPtr(6));
+                        //    WinApi.VirtualProtectEx(hProcess, ProcRVASaveToHtml, new IntPtr(6), Protection, out Protection);
+                        //}
+                        //#endregion
+
+                        #region Подмена сохранения в SaveAs
+
+                        //if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveAs, new IntPtr(6), 0x40, out Protection))
+                        //{
+                            Debug.WriteLine($"Патч по адресу {ProcRVASaveAs.ToInt32():X8}: PUSH {pWrapperSaveAs.ToInt32():X8}; RET;");
+                            Marshal.WriteByte(ProcRVASaveAs, 0x68); //PUSH
+                            Marshal.WriteIntPtr(new IntPtr(ProcRVASaveAs.ToInt32() + 1), pWrapperSaveAs);
+                            Marshal.WriteByte(new IntPtr(ProcRVASaveAs.ToInt32() + 5), 0xC3); //RET
+                            WinApi.FlushInstructionCache(hProcess, ProcRVASaveAs, new IntPtr(6));
+                            WinApi.VirtualProtectEx(hProcess, ProcRVASaveAs, new IntPtr(6), Protection, out Protection);
+                        //}
                         #endregion
-
-                        #region Подмена сохранения в html
-
-                        if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveToHtml, new IntPtr(6), 0x40, out Protection))
-                        {
-                            Debug.WriteLine($"Патч по адресу {ProcRVASaveToHtml.ToInt32():X8}: PUSH {pWrapperSaveToHtml.ToInt32():X8}; RET;");
-                            Marshal.WriteByte(ProcRVASaveToHtml, 0x68); //PUSH
-                            Marshal.WriteIntPtr(new IntPtr(ProcRVASaveToHtml.ToInt32() + 1), pWrapperSaveToHtml);
-                            Marshal.WriteByte(new IntPtr(ProcRVASaveToHtml.ToInt32() + 5), 0xC3); //RET
-                            WinApi.FlushInstructionCache(hProcess, ProcRVASaveToHtml, new IntPtr(6));
-                            WinApi.VirtualProtectEx(hProcess, ProcRVASaveToHtml, new IntPtr(6), Protection, out Protection);
-                        }
-                        #endregion
-
 
                         //Заменим фильтр диалога сохранения. Заменим *.xls на *.xlsx
                         #region Патч списка форматов
@@ -236,7 +337,7 @@ namespace Moxel
                         Char[] newRes = new Char[256 / 2];
                         Array.Clear(newRes, 0, newRes.Length);
 
-                        string[] DialogFilter = { "Таблица Excel 2007 (*.xlsx)|*.xlsx", "HTML Документ (*.html)|*.html", "Текстовый файл (*.txt)|*.txt" };
+                        string[] DialogFilter = { "Таблица Excel 2007 (*.xlsx)|*.xlsx", "HTML Документ (*.html)|*.html", "PDF (*.pdf)|*.pdf"};
 
                         int charindex = 0;
                         foreach (string Filter in DialogFilter)
@@ -274,20 +375,29 @@ namespace Moxel
                         return 1;
 
                     hProcess = Process.GetCurrentProcess().Handle;
-                    if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveToExcel, new IntPtr(6), 0x40, out Protection)) ;
-                    {
-                        Marshal.Copy(OriginalBytesXls, 0, ProcRVASaveToExcel, 6);
-                        Debug.WriteLine($"Снят патч по адресу {ProcRVASaveToExcel.ToInt32():X8}");
-                        WinApi.FlushInstructionCache(hProcess, ProcRVASaveToExcel, new IntPtr(6));
-                        WinApi.VirtualProtectEx(hProcess, ProcRVASaveToExcel, new IntPtr(6), Protection, out Protection);
-                    }
+                    //if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveToExcel, new IntPtr(6), 0x40, out Protection)) ;
+                    //{
+                    //    Marshal.Copy(OriginalBytesXls, 0, ProcRVASaveToExcel, 6);
+                    //    Debug.WriteLine($"Снят патч по адресу {ProcRVASaveToExcel.ToInt32():X8}");
+                    //    WinApi.FlushInstructionCache(hProcess, ProcRVASaveToExcel, new IntPtr(6));
+                    //    WinApi.VirtualProtectEx(hProcess, ProcRVASaveToExcel, new IntPtr(6), Protection, out Protection);
+                    //}
 
-                    if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveToHtml, new IntPtr(6), 0x40, out Protection)) ;
+                    //if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveToHtml, new IntPtr(6), 0x40, out Protection)) ;
+                    //{
+                    //    Marshal.Copy(OriginalBytesHtml, 0, ProcRVASaveToHtml, 6);
+                    //    Debug.WriteLine($"Снят патч по адресу {ProcRVASaveToHtml.ToInt32():X8}");
+                    //    WinApi.FlushInstructionCache(hProcess, ProcRVASaveToHtml, new IntPtr(6));
+                    //    WinApi.VirtualProtectEx(hProcess, ProcRVASaveToHtml, new IntPtr(6), Protection, out Protection);
+                    //}
+
+
+                    if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveAs, new IntPtr(6), 0x40, out Protection)) ;
                     {
-                        Marshal.Copy(OriginalBytesHtml, 0, ProcRVASaveToHtml, 6);
-                        Debug.WriteLine($"Снят патч по адресу {ProcRVASaveToHtml.ToInt32():X8}");
-                        WinApi.FlushInstructionCache(hProcess, ProcRVASaveToHtml, new IntPtr(6));
-                        WinApi.VirtualProtectEx(hProcess, ProcRVASaveToHtml, new IntPtr(6), Protection, out Protection);
+                        Marshal.Copy(OriginalBytesSaveAs, 0, ProcRVASaveAs, 6);
+                        Debug.WriteLine($"Снят патч по адресу {ProcRVASaveAs.ToInt32():X8}");
+                        WinApi.FlushInstructionCache(hProcess, ProcRVASaveAs, new IntPtr(6));
+                        WinApi.VirtualProtectEx(hProcess, ProcRVASaveAs, new IntPtr(6), Protection, out Protection);
                     }
 
                     //Вернем фильтр диалога сохранения таблиц на место

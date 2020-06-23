@@ -127,13 +127,13 @@ namespace Moxel
             if (mxl == null)
             {
                 if (TableObject != null)
-                    if (TableObject.SheetDoc.Length < 1024 * 1024 * 2)
+                    if (TableObject.SheetDoc.Length < 1024 * 1024 * 2 || !SaveWrapper.CanSaveExternal)
                         mxl = ReadFromCSheetDoc(TableObject.SheetDoc);
                     else
                     {
                         string tmpFileName = Path.GetTempFileName();
                         TableObject.SheetDoc.SaveToFile(tmpFileName);
-                        if (SaveWrapper.SaveExternal(tmpFileName, filename) == 1)
+                        if (SaveWrapper.SaveExternal(tmpFileName, filename).Result == 1)
                         {
                             File.Delete(tmpFileName);
                             return filename;

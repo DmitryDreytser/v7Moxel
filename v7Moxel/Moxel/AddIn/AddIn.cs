@@ -229,12 +229,14 @@ namespace Moxel
                     asyncEvent = null;
                 }
 
-                if (connect1c != null)
-                {
-                    while (Marshal.ReleaseComObject(connect1c) > 0) { };
-                    Marshal.FinalReleaseComObject(connect1c);
-                    connect1c = null;
-                }
+
+                try
+                    {
+                        while (Marshal.ReleaseComObject(connect1c) > 0) { };
+                        Marshal.FinalReleaseComObject(connect1c);
+                        connect1c = null;
+                    }
+                catch { }
             }
 
             GC.Collect();

@@ -9,6 +9,8 @@ using System.Drawing.Imaging;
 using ClosedXML.Excel.Drawings;
 using System.Collections.Generic;
 using System.Windows.Forms.VisualStyles;
+using System.Diagnostics;
+using System.Threading.Tasks;
 
 namespace Moxel
 {
@@ -159,17 +161,26 @@ namespace Moxel
                     worksheet.Column(columnNumber + 1).Width = MoxelWidthToExcel(columnwidth);
                 }
 
-                foreach (CellsUnion union in moxel.Unions)
+                foreach (CellsUnion union in moxel.Unions.Where(x=>x.dwBottom != x.dwTop))
                 {
                     worksheet.Range(union.dwTop + 1, union.dwLeft + 1, union.dwBottom + 1, union.dwRight + 1).Merge();
                 }
 
-                int progress = 0;
-                int progressor = 0;
+
+                var progress = 0;
+                var progressor = 0;
+                var count = 0;
 
                 for (int rowNumber = 0; rowNumber < moxel.nAllRowCount; rowNumber++)
                 {
-                    progress = (rowNumber + 1 ) * 100 / moxel.nAllRowCount;
+                    System.Threading.Interlocked.Increment(ref count);
+
+                    foreach (CellsUnion union in moxel.Unions.Where(x => x.dwTop == rowNumber && x.dwTop == x.dwBottom ))
+                    {
+                        worksheet.Range(union.dwTop + 1, union.dwLeft + 1, union.dwBottom + 1, union.dwRight + 1).Merge();
+                    }
+
+                    progress = count * 100 / moxel.nAllRowCount;
                     if (progressor != progress)
                     {
                         progressor = progress;
@@ -193,16 +204,29 @@ namespace Moxel
                             rowHeight = Row.Height;
 
                         bool MeasureAllROw = false;
-
+                        
                         foreach (int columnNumber in Row.Keys)
                         {
                             IXLRange cell;
+                            var moxelCell = Row[columnNumber];
+
+                            if (moxelCell.FormatCell.bControlContent == TextControl.Wrap && !moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
+                                if (string.IsNullOrEmpty(Row[columnNumber + 1].Text) && !string.IsNullOrEmpty(Row[columnNumber].Text))
+                                {
+                                    var cn = columnNumber + 1;
+                                    while (string.IsNullOrEmpty(Row[cn].Text) && cn < Row.Count)
+                                        cn++;
+
+                                    if (cn > columnNumber + 1)
+                                        worksheet.Range(rowNumber + 1, columnNumber + 1, rowNumber + 1, cn).Merge();
+                                }
+
                             if (worksheet.Cell(rowNumber + 1, columnNumber + 1).IsMerged())
                                 cell = worksheet.Cell(rowNumber + 1, columnNumber + 1).MergedRange();
                             else
                                 cell = worksheet.Cell(rowNumber + 1, columnNumber + 1).AsRange();
 
-                            var moxelCell = Row[columnNumber];
+                            
                             string Text = moxelCell.Text;
 
                             if (!string.IsNullOrEmpty(Text))
@@ -232,19 +256,19 @@ namespace Moxel
                                 else
 
                                     if (Commas > 0)
+                                {
+                                    if (Commas == 1)
                                     {
-                                        if (Commas == 1)
-                                        {
-                                            double val = 0;
+                                        double val = 0;
 
-                                            if (Double.TryParse(Text.Replace(" ", "").Replace(',', separator), out val))
-                                            {
-                                                cell.Value = val;
-                                                cell.DataType = XLDataType.Number;
-                                                cell.Style.NumberFormat.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2WithSeparator);
-                                            }
+                                        if (Double.TryParse(Text.Replace(" ", "").Replace(',', separator), out val))
+                                        {
+                                            cell.Value = val;
+                                            cell.DataType = XLDataType.Number;
+                                            cell.Style.NumberFormat.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2WithSeparator);
                                         }
                                     }
+                                }
 
 
 
@@ -274,7 +298,7 @@ namespace Moxel
                                     if (moxelCell.FormatCell.bFontUnderline)
                                         cell.Style.Font.SetUnderline();
 
-                                if(moxelCell.Text.Contains("\r\n"))
+                                if (moxelCell.Text.Contains("\r\n"))
                                     cell.Style.Alignment.WrapText = true;
 
 
@@ -282,7 +306,7 @@ namespace Moxel
                                 if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.Control))
                                 {
                                     if (moxelCell.FormatCell.bControlContent == TextControl.Auto)
-                                        if(string.IsNullOrEmpty(Row[columnNumber + 1].Text))
+                                        if (string.IsNullOrEmpty(Row[columnNumber + 1].Text))
                                             cell.Style.Alignment.WrapText = false;
                                         else
                                             cell.Style.Alignment.WrapText = true;
@@ -364,7 +388,7 @@ namespace Moxel
                                         else
                                             stringSize = MeasureString(Text, fn, (int)Math.Round(AreaWidth));
 
-                                        int heigth = (int)Math.Ceiling(stringSize.Height / cell.RowCount() / 1.27 * 4); 
+                                        int heigth = (int)Math.Ceiling(stringSize.Height / cell.RowCount() / 1.27 * 4);
 
                                         rowHeight = Math.Max(Math.Max(heigth, 45), rowHeight);
 
@@ -402,7 +426,7 @@ namespace Moxel
                         rowHeight = 45;
 
                     worksheet.Row(rowNumber + 1).Height = MoxelHeightToExcel(rowHeight);
-                }
+                };
 
                 foreach(EmbeddedObject obj in moxel.Objects)
                 {
