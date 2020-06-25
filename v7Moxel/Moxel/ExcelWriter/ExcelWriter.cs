@@ -11,6 +11,8 @@ using System.Collections.Generic;
 using System.Windows.Forms.VisualStyles;
 using System.Diagnostics;
 using System.Threading.Tasks;
+using DocumentFormat.OpenXml.Drawing;
+//using DocumentFormat.OpenXml.Office.Drawing;
 
 namespace Moxel
 {
@@ -120,7 +122,6 @@ namespace Moxel
             var f = File.Open(filename, FileMode.OpenOrCreate);
             f.Close();
 
-            int RowCount = 0;
             using (var workbook = new XLWorkbook(XLEventTracking.Disabled))
             {
                 DefaultExcelFont = new Font(workbook.Style.Font.FontName, (float)workbook.Style.Font.FontSize);

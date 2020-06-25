@@ -96,6 +96,7 @@ namespace Moxel
             {
                 Sheet = new CSheet(pMem + 0xB0);
                 PageSettings = PageSettings.FromIntPtr(pMem + 0x354);
+                Converter.PageSettings = PageSettings;
                 //Debug.WriteLine($"CProfile7: {(pMem + 0x354).ToInt32():X8}");
             }
 

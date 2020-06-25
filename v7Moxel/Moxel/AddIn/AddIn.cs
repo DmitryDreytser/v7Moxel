@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using AddIn;
 using System.Reflection;
 using System.Collections;
+using System.Windows.Forms;
 
 namespace Moxel
 {
@@ -151,6 +152,7 @@ namespace Moxel
         private static void Writer_onProgress(int progress)
         {
             StatusLine($"{progress:D2}%");
+            Application.DoEvents();
         }
 
         public void PostException(Exception ex)

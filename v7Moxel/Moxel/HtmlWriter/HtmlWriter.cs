@@ -5,6 +5,7 @@ using System.Text;
 using System.Drawing;
 using static Moxel.Moxel;
 using System.IO;
+//using DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace Moxel
 {
@@ -315,17 +316,18 @@ namespace Moxel
                     string Text = string.Empty;
                     CSSstyle CellStyle = new CSSstyle();
                     CellsUnion Union = RowUnion.FirstOrDefault(t => (t.dwLeft <= columnnumber && t.dwRight >= columnnumber));
-
+                    var c = columnnumber;
                     string FontFamily = DefFontName;
                     float FontSize = DefFontSize;
 
                     if (Row != null)
                     {
-                        Text = FillTextStyle(Row[columnnumber], ref CellStyle, ref FontFamily, ref FontSize);
-                        FormatCell = Row[columnnumber];
+                        Text = FillTextStyle(Row[c], ref CellStyle, ref FontFamily, ref FontSize);
+                        FormatCell = Row[c];
                     }
 
                     FillCellStyle(FormatCell, ref CellStyle);
+                    var NextColumnCelll = Row[c + 1];
 
                     if (!string.IsNullOrWhiteSpace(Text))
                     {
@@ -333,7 +335,7 @@ namespace Moxel
                         {
                             if (columnnumber < Row.Count - 1)
                             {
-                                var NextColumnCelll = Row[columnnumber + 1];
+                                
                                 if (!string.IsNullOrEmpty(NextColumnCelll.Text) || NextColumnCelll.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
                                 {
                                     CellStyle.Add("Overflow", "Hidden");
@@ -341,31 +343,38 @@ namespace Moxel
                             }
                         }
 
-                        if (FormatCell.bHorAlign == TextHorzAlign.CenterBySelection && Union.IsEmpty())
+                        if (Union.IsEmpty())
                         {
-                            Union = new CellsUnion { dwTop = rownumber, dwBottom = rownumber, dwLeft = 0, dwRight = moxel.nAllColumnCount };
-                        }
 
-                        else if (FormatCell.bControlContent == TextControl.Wrap && Union.IsEmpty() && !FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
-                            if (string.IsNullOrEmpty(Row[columnnumber + 1].Text) && !string.IsNullOrEmpty(Row[columnnumber].Text))
+                            if (string.IsNullOrEmpty(NextColumnCelll.Text))
                             {
-                                var cn = columnnumber + 1;
+                                if (FormatCell.bHorAlign == TextHorzAlign.CenterBySelection 
+                                    && !FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight) 
+                                    && !NextColumnCelll.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
+                                {
+                                    Union = new CellsUnion { dwTop = rownumber, dwBottom = rownumber, dwLeft = 0, dwRight = moxel.nAllColumnCount };
+                                }
+                                else if (FormatCell.bControlContent == TextControl.Wrap && !FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
+                                {
+                                    var cn = c + 1;
 
-                                while (string.IsNullOrEmpty(Row[cn].Text) && cn < moxel.nAllColumnCount && !Row[cn].FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
-                                    cn++;
+                                    while (string.IsNullOrEmpty(Row[cn].Text) && cn < moxel.nAllColumnCount && !Row[cn].FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
+                                        cn++;
 
-                                if (cn > columnnumber + 1)
-                                    Union = new CellsUnion { dwTop = rownumber, dwBottom = rownumber, dwLeft = columnnumber, dwRight = cn };
+                                    if (cn > columnnumber + 1)
+                                        Union = new CellsUnion { dwTop = rownumber, dwBottom = rownumber, dwLeft = c, dwRight = cn };
+                                }
                             }
 
+                        }
                         //if (Row.Height == 0)
                         {
-                            Size Constr = new Size { Width = (int)Math.Round((moxel.GetWidth(columnnumber, columnnumber + Union.ColumnSpan) + moxel.GetColumnWidth(columnnumber)) * 0.875), Height = 0 };
+                            Size Constr = new Size { Width = (int)Math.Round((moxel.GetWidth(c, c + Union.ColumnSpan) + moxel.GetColumnWidth(c)) * 0.875), Height = 0 };
                             Size textsize = System.Windows.Forms.TextRenderer.MeasureText(Text.TrimStart(' '), new Font(FontFamily, FontSize, FormatCell.bFontBold == clFontWeight.Bold ? FontStyle.Bold : FontStyle.Regular), Constr, System.Windows.Forms.TextFormatFlags.WordBreak);
                             textsize.Height /= Union.RowSpan + 1;
 
                             if (FormatCell.bControlContent == TextControl.Wrap && !Text.Contains("<br>"))
-                                if (textsize.Width > Constr.Width)
+                                if (textsize.Width > Constr.Width )
                                 {
                                     int index = (textsize.Width - Constr.Width) / (textsize.Width / Text.Length);
                                     if(index > 1 && index < Text.Length)
@@ -374,9 +383,21 @@ namespace Moxel
 
                             Row.Height = Math.Max((short)(Math.Max(textsize.Height, 15) * 3), Row.Height);
                         }
-                    }
 
-                    if (!Union.ContainsCell(rownumber, columnnumber))
+
+                        if (c > 0 && string.IsNullOrEmpty(Row[c - 1].Text)
+                            && FormatCell.bHorAlign == TextHorzAlign.Right
+                            && !Row[c - 1].FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight)
+                            && !FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
+                        {
+                            CellStyle.Set("direction", "rtl");
+                            CellStyle.Set("Overflow", "Visible");
+                            Text = $"<SPAN style=\"white-space: nowrap; direction: ltr; display: inline-block;\">{Text}</SPAN>";
+                        }
+                    }
+   
+
+                    if (!Union.ContainsCell(rownumber, c))
                         if (!string.IsNullOrWhiteSpace(Text))
                             RowString.AppendLine($"\t\t\t\t<td{Union.HtmlSpan}{CellStyle}>{Text}</td>");
                         else
@@ -422,19 +443,21 @@ namespace Moxel
                         if ((FormatCell.bPictureBorderPresence != ObjectBorderPresence.All) && FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
                         {
                             if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Left))
-                                PictureStyle.Set("border-left", FormatCell.bPictureBorderStyle.ToString());
+                                PictureStyle.Set("border-left", PictureBorderStyle(FormatCell));
+
                             if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Right))
-                                PictureStyle.Set("border-right", FormatCell.bPictureBorderStyle.ToString());
+                                PictureStyle.Set("border-right", PictureBorderStyle(FormatCell));
+
                             if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Top))
-                                PictureStyle.Set("border-top", FormatCell.bPictureBorderStyle.ToString());
+                                PictureStyle.Set("border-top", PictureBorderStyle(FormatCell));
+
                             if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Bottom))
-                                PictureStyle.Set("border-bottom", FormatCell.bPictureBorderStyle.ToString());
+                                PictureStyle.Set("border-bottom", PictureBorderStyle(FormatCell));
                         }
                         else
                             if (FormatCell.bPictureBorderStyle <= ObjectBorderStyle.Solid && !FormatCell.dwFlags.HasFlag(MoxelCellFlags.PatternType))
                         {
-                            PictureStyle.Set("border", FormatCell.bPictureBorderStyle.ToString());
-                            PictureStyle.Set("border-width", $"{(byte)FormatCell.bPictureBorderWidth * 2 + 1}px");
+                            PictureStyle.Set("border", PictureBorderStyle(FormatCell));
                         }
                         else
                             DrawRectangle = true;
@@ -471,6 +494,17 @@ namespace Moxel
                         PictureStyle.Add("display", "flex");
                         PictureStyle.Add("align-items", "center");
                     }
+                }
+
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignH))
+                {
+
+                    if (FormatCell.bHorAlign == TextHorzAlign.CenterBySelection)
+                    {
+                        PictureStyle.Set("text-align", "center");
+                    }
+                    else
+                        PictureStyle.Set("text-align", FormatCell.bHorAlign.ToString());
                 }
 
                 CSSstyle LineStyle = new CSSstyle();
@@ -541,6 +575,43 @@ namespace Moxel
             result.Append("\t</body>\r\n");
             result.Append("</html>");
             return result;
+        }
+
+
+        private static string PictureBorderWidth(ObjectBorderWidth bPictureBorderWidth)
+        {
+            switch(bPictureBorderWidth)
+            {
+                case ObjectBorderWidth.Medium:
+                    return "2px ";
+                case ObjectBorderWidth.Thick:
+                    return "3px ";
+                case ObjectBorderWidth.Thin:
+                default:
+                    return "0.5px ";
+            }
+            
+        }
+        private static string PictureBorderStyle(CSheetFormat FormatCell)
+        {
+            if (FormatCell.bPictureBorderPresence == ObjectBorderPresence.Empty)
+                return "none";
+
+            switch (FormatCell.bPictureBorderStyle)
+            {
+                case ObjectBorderStyle.None:
+                case ObjectBorderStyle.Solid:
+                    return $"{PictureBorderWidth(FormatCell.bPictureBorderWidth)}solid";
+                case ObjectBorderStyle.DashedShort:
+                    return $"{PictureBorderWidth(FormatCell.bPictureBorderWidth)}dotted";
+                case ObjectBorderStyle.DashedExtraLong:
+                case ObjectBorderStyle.DashDotSparse:
+                case ObjectBorderStyle.DashDotDot:
+                    return $"{PictureBorderWidth(FormatCell.bPictureBorderWidth)}dashed";
+                default:
+                    return "none";
+            }
+
         }
     }
 }

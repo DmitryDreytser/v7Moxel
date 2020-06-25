@@ -3,6 +3,8 @@ using Pechkin.Synchronized;
 using System.IO;
 using System.Drawing.Printing;
 using System.Text;
+using System.Windows.Forms;
+using System;
 
 namespace Moxel
 {
@@ -44,7 +46,7 @@ namespace Moxel
                 //if ((int)Converter.PageSettings.Get(PageSettings.OptionType.FitToPage) == 1)
                 //    options.SetIntelligentShrinking(true);
                 //else
-                //    options.SetZoomFactor((int)Converter.PageSettings.Get(PageSettings.OptionType.Scale) / 100);
+                //    options.SetZoomFactor((int)Converter.PageSettings.Get(PageSettings.OptionType.Scale) / 100 * 10);
 
                 gc.SetColorMode((int)Converter.PageSettings.Get(PageSettings.OptionType.BlackAndWhite) == 1);
 
@@ -89,7 +91,7 @@ namespace Moxel
 
         private static void Pechkin_ProgressChanged(SimplePechkin converter, int progress, string progressDescription)
         {
-            //int progress = (rowNumber + 1) * 100 / moxel.nAllRowCount;
+            Application.RaiseIdle(EventArgs.Empty);
             onProgress?.Invoke(progress);
         }
     }
