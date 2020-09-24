@@ -324,7 +324,7 @@ namespace Moxel
 
                     hProcess = Process.GetCurrentProcess().Handle;
 
-                    if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveAs, new IntPtr(6), 0x40, out Protection)) ;
+                    if (WinApi.VirtualProtectEx(hProcess, ProcRVASaveAs, new IntPtr(6), 0x40, out Protection)) 
                     {
                         Marshal.Copy(OriginalBytesSaveAs, 0, ProcRVASaveAs, 6);
                         Debug.WriteLine($"Снят патч по адресу {ProcRVASaveAs.ToInt32():X8}");
@@ -334,7 +334,7 @@ namespace Moxel
 
                     //Вернем фильтр диалога сохранения таблиц на место
 
-                    if (WinApi.VirtualProtectEx(hProcess, FileSaveFilterResource, new IntPtr(oldRes.Length), 0x40, out Protection)) ;
+                    if (WinApi.VirtualProtectEx(hProcess, FileSaveFilterResource, new IntPtr(oldRes.Length), 0x40, out Protection))
                     {
                         Marshal.Copy(oldRes, 0, FileSaveFilterResource, oldRes.Length);
                         WinApi.VirtualProtectEx(hProcess, FileSaveFilterResource, new IntPtr(oldRes.Length), Protection, out Protection);
