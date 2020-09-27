@@ -122,9 +122,6 @@
     </Compile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="App.config" />
-  </ItemGroup>
-  <ItemGroup>
     <ProjectReference Include="..\v7Moxel\v7Moxel.csproj">
       <Project>{c896056b-d75b-49e0-9d56-871b75f5de51}</Project>
       <Name>v7Moxel</Name>

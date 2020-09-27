@@ -327,7 +327,7 @@ namespace Moxel
                     }
 
                     FillCellStyle(FormatCell, ref CellStyle);
-                    var NextColumnCelll = Row[c + 1];
+                    var NextColumnCelll = Row?[c + 1];
 
                     if (!string.IsNullOrWhiteSpace(Text))
                     {
@@ -395,7 +395,8 @@ namespace Moxel
                             Text = $"<SPAN style=\"white-space: nowrap; direction: ltr; display: inline-block;\">{Text}</SPAN>";
                         }
                     }
-   
+
+                    
 
                     if (!Union.ContainsCell(rownumber, c))
                         if (!string.IsNullOrWhiteSpace(Text))
@@ -411,6 +412,9 @@ namespace Moxel
                     RowStyle.Set("height", $"{Row.FormatCell.wHeight / 3}px");
                 }
                 result.AppendLine($"\t\t\t<tr{RowStyle} id=\"R{rownumber:00}\">\r\n{RowString}\r\n\t\t\t</tr>");
+
+                if(Row != null)
+                    Row.Height = Math.Max(45, Row.Height);
             }
 
             result.AppendLine($"\t\t\t</tbody>");

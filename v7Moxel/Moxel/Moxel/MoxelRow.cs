@@ -26,9 +26,10 @@ namespace Moxel
                     else
                         return FormatCell.wHeight;
                 else
-                    foreach(var cell in values.Values)
+                {
+                    foreach (var cell in values.Values)
                     {
-                        if(cell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.RowHeight))
+                        if (cell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.RowHeight))
                         {
                             return cell.FormatCell.wHeight;
                         }
@@ -36,12 +37,14 @@ namespace Moxel
                         if (string.IsNullOrEmpty(cell.Text))
                             return 0;
 
-                        if (cell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontSize) && string.IsNullOrEmpty(cell.Text))
+                        if (string.IsNullOrEmpty(cell.Text) && cell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontSize))
                         {
                             return (int)Math.Floor(cell.FormatCell.wFontSize * (-1.3));
                         }
                     }
                     return 0;
+                }
+                    
             }
             set
             {

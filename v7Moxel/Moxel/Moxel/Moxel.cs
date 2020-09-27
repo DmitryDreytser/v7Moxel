@@ -116,6 +116,7 @@ namespace Moxel
         public int GetColumnWidth(int ColNumber)
         {
             int result = 0;
+
             if (DefFormat.dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
                 result = DefFormat.wWidth;
 
@@ -151,7 +152,6 @@ namespace Moxel
                 case BorderStyle.MediumDashed:
                 case BorderStyle.MediumSolid:
                     return 2;
-                    break;
                 case BorderStyle.ThickSolid:
                     return 3;
                 case BorderStyle.Double:
@@ -283,7 +283,7 @@ namespace Moxel
                 case SaveFormat.Html:
                     return HtmlWriter.Save(this, filename);
                 case SaveFormat.PDF:
-                    return PDFWriter.Save(this, filename);
+                    return PDFWriter.Save(this, filename).Result;
                 default:
                     throw new Exception("Формат сохранения не поддерживается.");
             }

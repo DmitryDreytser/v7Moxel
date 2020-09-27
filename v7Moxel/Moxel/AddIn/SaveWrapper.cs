@@ -35,7 +35,7 @@ namespace Moxel
         //SaveToText = 0x2500A
         public static string utilPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "TaskRunnner.exe");
 
-        public static bool CanSaveExternal => File.Exists(utilPath);
+        public static bool CanSaveExternal =>  File.Exists(utilPath);
 
         public static async Task<int> SaveExternal(string MoxelName, string FileName)
         {
@@ -159,7 +159,7 @@ namespace Moxel
                     GC.Collect();
                     GC.Collect();
                     GC.WaitForPendingFinalizers();
-                    RaiseExtRuntimeError?.Invoke($"Ошибка сохранения таблицы в XLSX: {ex.Message}", 0);
+                    RaiseExtRuntimeError?.Invoke($"Ошибка сохранения таблицы в XLSX: {ex}", 0);
                 }
             }
             else

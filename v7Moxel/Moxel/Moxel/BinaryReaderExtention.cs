@@ -177,7 +177,7 @@ namespace Moxel
         {
             int stringLength = br.ReadByte();
             if (stringLength == 0xFF)
-                stringLength = br.ReadInt16();
+                stringLength = br.ReadUInt16();
             if (stringLength == 0xFFFF)
                 stringLength = br.ReadInt32();
 
@@ -191,9 +191,9 @@ namespace Moxel
         /// <returns></returns>
         public static int ReadCount(this BinaryReader br)
         {
-            int Count = br.ReadInt16();
+            int Count = br.ReadUInt16();
 
-            if (Count == -1)
+            if (Count < 0)
                 Count = br.ReadInt32();
 
             return Count;

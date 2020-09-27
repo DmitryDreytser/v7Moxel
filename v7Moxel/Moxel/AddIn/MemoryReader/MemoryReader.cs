@@ -363,7 +363,8 @@ namespace Moxel
                 WinApi.VirtualProtectEx(Process.GetCurrentProcess().Handle, FuncAddr, new IntPtr(4), 0x40, out OldProtection);
                 Marshal.WriteIntPtr(FuncAddr, old_Func); // Вернем оригинальную функцию.
                 WinApi.VirtualProtectEx(Process.GetCurrentProcess().Handle, FuncAddr, new IntPtr(4), OldProtection, out OldProtection);
-                hh.Free();
+                if(hh.IsAllocated)
+                    hh.Free();
                 patched = false;
             }
 

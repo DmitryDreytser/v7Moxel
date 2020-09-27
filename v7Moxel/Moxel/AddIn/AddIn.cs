@@ -209,35 +209,33 @@ namespace Moxel
 
             if (--refCount == 0)
             {
-
-                if (statusLine != null)
-                {
-                    while (Marshal.ReleaseComObject(statusLine) > 0) { };
-                    Marshal.FinalReleaseComObject(statusLine);
-                    statusLine = null;
-                }
-
-                if (errorLog != null)
-                {
-                    while (Marshal.ReleaseComObject(errorLog) > 0) { };
-                    Marshal.FinalReleaseComObject(errorLog);
-                    errorLog = null;
-                }
-
-                if (asyncEvent != null)
-                {
-                    while (Marshal.ReleaseComObject(asyncEvent) > 0) { };
-                    Marshal.FinalReleaseComObject(asyncEvent);
-                    asyncEvent = null;
-                }
-
-
                 try
+                {
+                    if (statusLine != null)
                     {
-                        while (Marshal.ReleaseComObject(connect1c) > 0) { };
-                        Marshal.FinalReleaseComObject(connect1c);
-                        connect1c = null;
+                        while (Marshal.ReleaseComObject(statusLine) > 0) { };
+                        Marshal.FinalReleaseComObject(statusLine);
+                        statusLine = null;
                     }
+
+                    if (errorLog != null)
+                    {
+                        while (Marshal.ReleaseComObject(errorLog) > 0) { };
+                        Marshal.FinalReleaseComObject(errorLog);
+                        errorLog = null;
+                    }
+
+                    if (asyncEvent != null)
+                    {
+                        while (Marshal.ReleaseComObject(asyncEvent) > 0) { };
+                        Marshal.FinalReleaseComObject(asyncEvent);
+                        asyncEvent = null;
+                    }
+
+                    while (Marshal.ReleaseComObject(connect1c) > 0) { };
+                    Marshal.FinalReleaseComObject(connect1c);
+                    connect1c = null;
+                }
                 catch { }
             }
 

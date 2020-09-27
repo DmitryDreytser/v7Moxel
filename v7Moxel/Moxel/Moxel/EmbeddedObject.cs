@@ -17,11 +17,11 @@ namespace Moxel
             {
                 int left = 0, top = 0, right = 0, bottom = 0;
 
-                left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart ) * 0.875 + Picture.dwOffsetLeft / 3, 0);
-                right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd ) * 0.875 + Picture.dwOffsetRight / 3, 0);
+                left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 3d, 0);
+                right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 3d, 0);
 
-                top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3 + Picture.dwOffsetTop / 3d, 0);
-                bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3 + Picture.dwOffsetBottom / 3d, 0);
+                top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3d  + Picture.dwOffsetTop / 3d, 0);
+                bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3d  + Picture.dwOffsetBottom / 3d, 0);
 
                 return new Rectangle { X = Math.Min(left, right), Y = Math.Min(top, bottom), Width = Math.Abs(right - left), Height = Math.Abs(bottom - top) };
             }
@@ -33,8 +33,8 @@ namespace Moxel
             {
                 int left = 0, top = 0, right = 0, bottom = 0;
 
-                left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 3, 0);
-                right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 3, 0);
+                left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 3d, 0);
+                right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 3d, 0);
 
                 top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3d + Picture.dwOffsetTop / 3d, 0);
                 bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3d + Picture.dwOffsetBottom / 3d, 0);
@@ -74,16 +74,16 @@ namespace Moxel
             if (wClassNameFlag == -1)
             {
                 br.ReadInt16();
-                short wClassNameLength = br.ReadInt16();
+                int wClassNameLength = br.ReadUInt16();
                 classname = Encoding.GetEncoding(1251).GetString(br.ReadBytes(wClassNameLength));
             }
 
-            int dwObjectType = br.ReadInt32();
-            int dwItemNumber = br.ReadInt32();
-            int dwAspect = br.ReadInt32();
-            short wUseMoniker = br.ReadInt16();
+            uint dwObjectType = br.ReadUInt32();
+            uint dwItemNumber = br.ReadUInt32();
+            uint dwAspect = br.ReadUInt32();
+            ushort wUseMoniker = br.ReadUInt16();
 
-            dwAspect = br.ReadInt32();
+            dwAspect = br.ReadUInt32();
 
             int dwObjectSize = br.ReadInt32();
             OleObjectStorage = br.ReadBytes(dwObjectSize);
@@ -121,21 +121,14 @@ namespace Moxel
             Marshal.Release(pUnknwn);
             result = OLE32.OleRun(pOle);
 
-            //tagSIZEL sizel = new tagSIZEL();
-            //pOle.GetExtent(1, ref sizel);
-            //float LogUnitsPerDevPixel_X = 1, LogUnitsPerDevPixel_Y = 1;
+            Rectangle sizel = new Rectangle();
+            pOle.GetExtent(1, ref sizel);
 
-            //using (Graphics g = Graphics.FromImage(new Bitmap(1, 1)))
-            //{
-            //    HandleRef hdcsrc = new HandleRef(g, g.GetHdc());
-            //    LogUnitsPerDevPixel_X = ((float)UNITS_PER_INCH) / ((float)GetDeviceCaps(hdcsrc.Handle, LOGPIXELSX));
-            //    LogUnitsPerDevPixel_Y = ((float)UNITS_PER_INCH) / ((float)GetDeviceCaps(hdcsrc.Handle, LOGPIXELSY));
-            //    g.ReleaseHdc(hdcsrc.Handle);
-            //}
 
             Rectangle Size = AbsoluteImageArea;
 
-            Rectangle rect = new Rectangle(0, 0, Size.Width * 3, Size.Height * 3);
+            //Rectangle rect = new Rectangle(0, 0, Size.Width * 3, Size.Height * 3);
+            Rectangle rect = new Rectangle(0, 0, sizel.X / 26, sizel.Y / 26);
             Bitmap m = new Bitmap(rect.Width, rect.Height);
 
             using (Graphics g = Graphics.FromImage(m))
@@ -163,6 +156,7 @@ namespace Moxel
                 g.Clear(bgColor);
                 HandleRef hdcsrc = new HandleRef(g, g.GetHdc());
                 result = OLE32.OleDraw(pOle, 1, hdcsrc, ref rect);
+
                 g.ReleaseHdc(hdcsrc.Handle);
                 if (MakeTransparent)
                     m.MakeTransparent(bgColor);
@@ -177,7 +171,10 @@ namespace Moxel
 
         private Bitmap LoadPicture(BinaryReader br)
         {
-            uint xz = br.ReadUInt32();
+            byte x = br.ReadByte();
+            byte y = br.ReadByte();
+            ushort z = br.ReadUInt16();
+
             int PictureSize = br.ReadInt32();
             byte[] pictureBuffer = br.ReadBytes(PictureSize);
 

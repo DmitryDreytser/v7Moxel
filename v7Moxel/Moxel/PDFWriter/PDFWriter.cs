@@ -5,12 +5,15 @@ using System.Drawing.Printing;
 using System.Text;
 using System.Windows.Forms;
 using System;
+using DocumentFormat.OpenXml.Bibliography;
+using System.Threading.Tasks;
 
 namespace Moxel
 {
     public static class PDFWriter
     {
 
+        private static System.Timers.Timer timer = new System.Timers.Timer(100);
         public static event ConverterProgressor onProgress;
 
         public static GlobalConfig gc = null;
@@ -19,7 +22,7 @@ namespace Moxel
         public static bool landscape = false;
         public static PaperKind paperKind = PaperKind.A4;
 
-        public static bool Save(Moxel moxel, string filename, ObjectConfig options = null)
+        public static async Task<bool> Save(Moxel moxel, string filename, ObjectConfig options = null)
         {
             string HTML = HtmlWriter.RenderToHtml(moxel).ToString();
 
@@ -43,8 +46,8 @@ namespace Moxel
 
                 options.SetZoomFactor(10);
 
-                //if ((int)Converter.PageSettings.Get(PageSettings.OptionType.FitToPage) == 1)
-                //    options.SetIntelligentShrinking(true);
+                if ((int)Converter.PageSettings.Get(PageSettings.OptionType.FitToPage) == 1)
+                    options.SetIntelligentShrinking(false);
                 //else
                 //    options.SetZoomFactor((int)Converter.PageSettings.Get(PageSettings.OptionType.Scale) / 100 * 10);
 
@@ -79,20 +82,30 @@ namespace Moxel
 
             IPechkin pechkin = new SynchronizedPechkin(gc);
             pechkin.ProgressChanged += Pechkin_ProgressChanged;
-            byte[] buffer = pechkin.Convert(options, HTML);
-
+            timer.Elapsed += Timer_Tick;
+            timer.Start();
+            byte[] buffer = await Task.Factory.StartNew( ()=>  pechkin.Convert(options, HTML));
+            timer.Stop();
             if (buffer.Length > 0)
                 File.WriteAllBytes(filename, buffer);
 
             pechkin.ProgressChanged -= Pechkin_ProgressChanged;
+            timer.Elapsed -= Timer_Tick;
             return File.Exists(filename);
 
         }
 
+        private static void Timer_Tick(object sender, EventArgs e)
+        {
+            onProgress?.Invoke(lastProgress);
+        }
+
+        static int lastProgress = 0;
         private static void Pechkin_ProgressChanged(SimplePechkin converter, int progress, string progressDescription)
         {
-            Application.RaiseIdle(EventArgs.Empty);
+            //Application.RaiseIdle(EventArgs.Empty);
             onProgress?.Invoke(progress);
+            lastProgress = progress;
         }
     }
 }

@@ -12,6 +12,8 @@ using System.Windows.Forms.VisualStyles;
 using System.Diagnostics;
 using System.Threading.Tasks;
 using DocumentFormat.OpenXml.Drawing;
+using System.Threading;
+using System.Collections.Concurrent;
 //using DocumentFormat.OpenXml.Office.Drawing;
 
 namespace Moxel
@@ -56,14 +58,14 @@ namespace Moxel
         }
 
         static Graphics EmptyGraphics = Graphics.FromHwnd(IntPtr.Zero);
-        static float MeasureSymbol( Font font)
+        static float MeasureSymbol(Font font)
         {
             double s1 = EmptyGraphics.MeasureString("0", font).Width;
             double s2 = EmptyGraphics.MeasureString("00", font).Width;
             double y = 2 * s1 - s2;//Ширина интервала между символами
             double x = s1 - 2 * y;//Ширина символа
             double z = x + y; //Ширина занимаемого места символом в составе строки
-            return (float) z;
+            return (float)z;
         }
 
         static float MeasureExcelDefaultSymbol()
@@ -77,7 +79,7 @@ namespace Moxel
             return System.Windows.Forms.TextRenderer.MeasureText(text, font, Constr, System.Windows.Forms.TextFormatFlags.WordBreak | System.Windows.Forms.TextFormatFlags.VerticalCenter | System.Windows.Forms.TextFormatFlags.ExpandTabs);
         }
 
-        static float standard1CSymbol = 105f; //Стандартный символ 1С = 105 твипов. Это ширина символа "0" шрифтом Arial, размера 10
+        const float standard1CSymbol = 105f; //Стандартный символ 1С = 105 твипов. Это ширина символа "0" шрифтом Arial, размера 10
         static float standardExcelSymbol = 12;   // Стандартный символ Экселя в пикселях. Шрифт по умолчанию - Calibri, размера 11
         static float UnitsPerPixel = WinApi.GetUnitsPerPixel();
 
@@ -113,6 +115,8 @@ namespace Moxel
             return (short)(pixels * 3);
         }
 
+        const double defcolumnwidth = 40.0d;
+        static AutoResetEvent finishEvent = new AutoResetEvent(false);
         public static bool Save(Moxel moxel, string filename)
         {
 
@@ -122,33 +126,35 @@ namespace Moxel
             var f = File.Open(filename, FileMode.OpenOrCreate);
             f.Close();
 
+            int DefFontSize = 8;
+            string defFontName = "Arial";
+
             using (var workbook = new XLWorkbook(XLEventTracking.Disabled))
             {
                 DefaultExcelFont = new Font(workbook.Style.Font.FontName, (float)workbook.Style.Font.FontSize);
                 standardExcelSymbol = MeasureExcelDefaultSymbol();
-
-                workbook.Style.Font.FontName = "Arial";
-                workbook.Style.Font.FontSize = 8;
-
-                var worksheet = workbook.Worksheets.Add("Лист1");
-
-                int DefFontSize = 8;
-                string defFontName = "Arial";
-
-                List<int> RowsToAutoHeight = new List<int>();
-
+                
                 if (moxel.DefFormat.dwFlags.HasFlag(MoxelCellFlags.FontSize))
                     DefFontSize = -moxel.DefFormat.wFontSize / 4;
 
                 if (moxel.FontList.Count == 1)
                     defFontName = moxel.FontList.First().Value.lfFaceName;
 
-                for (int columnNumber = 0; columnNumber < moxel.nAllColumnCount; columnNumber++)
+                workbook.Style.Font.FontName = defFontName;
+                workbook.Style.Font.FontSize = DefFontSize;
+
+                var worksheet = workbook.Worksheets.Add("Лист1");               
+
+                List<int> RowsToAutoHeight = new List<int>();
+
+                var locker = new AutoResetEvent(true);
+                
+
+                Parallel.For(0, moxel.nAllColumnCount, (int columnNumber) =>
                 {
-                    double defcolumnwidth = 40.0d;
                     double columnwidth = -1;
 
-                    if (moxel.Columns.ContainsKey(columnNumber) )
+                    if (moxel.Columns.ContainsKey(columnNumber))
                         if (moxel.Columns[columnNumber].FormatCell.dwFlags.HasFlag(MoxelCellFlags.ColumnWidth))
                             columnwidth = (double)moxel.Columns[columnNumber].FormatCell.wWidth;
 
@@ -159,35 +165,54 @@ namespace Moxel
                     if (columnwidth == -1)
                         columnwidth = defcolumnwidth;
 
-                    worksheet.Column(columnNumber + 1).Width = MoxelWidthToExcel(columnwidth);
-                }
+                    lock (worksheet)
+                        worksheet.Column(columnNumber + 1).Width = MoxelWidthToExcel(columnwidth);
+                    
+                });
 
-                foreach (CellsUnion union in moxel.Unions.Where(x=>x.dwBottom != x.dwTop))
-                {
+                foreach (CellsUnion union in moxel.Unions.Where(x => x.dwBottom != x.dwTop))
                     worksheet.Range(union.dwTop + 1, union.dwLeft + 1, union.dwBottom + 1, union.dwRight + 1).Merge();
+
+
+                for (int rowNumber = 0; rowNumber < moxel.nAllRowCount; rowNumber++)
+                {
+                    foreach (CellsUnion union in moxel.Unions.Where(x => x.dwTop == rowNumber && x.dwTop == x.dwBottom))
+                        worksheet.Range(union.dwTop + 1, union.dwLeft + 1, union.dwBottom + 1, union.dwRight + 1).Merge();
                 }
 
+                foreach (var RowValue in moxel.Rows)
+                {
+                    var Row = RowValue.Value;
+                    var rowNumber = RowValue.Key;
+
+                    foreach (int columnNumber in Row.Keys)
+                    {
+                        var moxelCell = Row[columnNumber];
+                            if (moxelCell.FormatCell.bControlContent == TextControl.Wrap && !moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
+                                if (string.IsNullOrEmpty(Row[columnNumber + 1].Text) && !string.IsNullOrEmpty(Row[columnNumber].Text))
+                                {
+                                    var cn = columnNumber + 1;
+
+                                    while (string.IsNullOrEmpty(Row[cn].Text) && cn < Row.Count &&  !worksheet.Cell(rowNumber + 1, cn + 1).IsMerged())
+                                        cn++;
+
+                                    if (cn > columnNumber + 1)
+                                        worksheet.Range(rowNumber + 1, columnNumber + 1, rowNumber + 1, cn).Merge();
+                                }
+                    }
+                };
+
+                
 
                 var progress = 0;
                 var progressor = 0;
                 var count = 0;
 
-                for (int rowNumber = 0; rowNumber < moxel.nAllRowCount; rowNumber++)
+                ConcurrentDictionary<int, IXLStyle> styleCache = new ConcurrentDictionary<int, IXLStyle>();
+
+                Parallel.For(0, moxel.nAllRowCount, async (int rowNumber) =>
+                //for (int rowNumber = 0; rowNumber < moxel.nAllRowCount; rowNumber++)
                 {
-                    System.Threading.Interlocked.Increment(ref count);
-
-                    foreach (CellsUnion union in moxel.Unions.Where(x => x.dwTop == rowNumber && x.dwTop == x.dwBottom ))
-                    {
-                        worksheet.Range(union.dwTop + 1, union.dwLeft + 1, union.dwBottom + 1, union.dwRight + 1).Merge();
-                    }
-
-                    progress = count * 100 / moxel.nAllRowCount;
-                    if (progressor != progress)
-                    {
-                        progressor = progress;
-                        onProgress?.Invoke(progressor);
-                    }
-
                     MoxelRow Row = null;
                     if (moxel.Rows.ContainsKey(rowNumber))
                         Row = moxel.Rows[rowNumber];
@@ -205,257 +230,289 @@ namespace Moxel
                             rowHeight = Row.Height;
 
                         bool MeasureAllROw = false;
-                        
-                        foreach (int columnNumber in Row.Keys)
+                        var totalCells = Row.Keys.Count;
+                        var RowFinish = new AutoResetEvent(false);
+
+                        Parallel.ForEach(Row.Keys,  (columnNumber) =>
+                        //foreach(var columnNumber in Row.Keys)
                         {
-                            IXLRange cell;
                             var moxelCell = Row[columnNumber];
+                            IXLRange cell;
 
-                            if (moxelCell.FormatCell.bControlContent == TextControl.Wrap && !moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
-                                if (string.IsNullOrEmpty(Row[columnNumber + 1].Text) && !string.IsNullOrEmpty(Row[columnNumber].Text))
-                                {
-                                    var cn = columnNumber + 1;
-                                    while (string.IsNullOrEmpty(Row[cn].Text) && cn < Row.Count)
-                                        cn++;
+                            lock (worksheet)
+                                cell = worksheet.Cell(rowNumber + 1, columnNumber + 1).IsMerged() ?
+                                    worksheet.Cell(rowNumber + 1, columnNumber + 1).MergedRange() :
+                                    worksheet.Cell(rowNumber + 1, columnNumber + 1).AsRange();
 
-                                    if (cn > columnNumber + 1)
-                                        worksheet.Range(rowNumber + 1, columnNumber + 1, rowNumber + 1, cn).Merge();
-                                }
-
-                            if (worksheet.Cell(rowNumber + 1, columnNumber + 1).IsMerged())
-                                cell = worksheet.Cell(rowNumber + 1, columnNumber + 1).MergedRange();
-                            else
-                                cell = worksheet.Cell(rowNumber + 1, columnNumber + 1).AsRange();
-
-                            
-                            string Text = moxelCell.Text;
-
-                            if (!string.IsNullOrEmpty(Text))
                             {
-                                cell.SetValue<string>(Text.TrimEnd('\r', '\n'));
-                                cell.Style.Alignment.WrapText = false;
+                                var style = cell.Style;
+                                string Text = moxelCell.Text;
 
-                                Char separator = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.CurrencyDecimalSeparator[0];
-
-                                int Dots = Text.ToCharArray().Count(t => t == '.');
-                                int Commas = Text.ToCharArray().Count(t => t == ',');
-
-                                if (Dots > 0)
+                                if (!string.IsNullOrEmpty(Text))
                                 {
-                                    if (Text.Contains(",") && Dots == 1)
+                                    cell.SetValue<string>(Text.TrimEnd('\r', '\n'));
+                                    style.Alignment.WrapText = false;
+                                    Char separator = System.Globalization.CultureInfo.CurrentCulture.NumberFormat.CurrencyDecimalSeparator[0];
+
+                                    int Dots = Text.ToCharArray().Count(t => t == '.');
+                                    int Commas = Text.ToCharArray().Count(t => t == ',');
+
+                                    if (Dots > 0)
                                     {
-                                        string tText = Text.Replace(",", "").Replace('.', separator);
-                                        double val = 0;
-                                        if (Double.TryParse(tText, out val))
+                                        if (Text.Contains(",") && Dots == 1)
                                         {
-                                            cell.Value = val;
-                                            cell.DataType = XLDataType.Number;
-                                            cell.Style.NumberFormat.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2WithSeparator);
-                                        }
-                                    }
-                                }
-                                else
-
-                                    if (Commas > 0)
-                                {
-                                    if (Commas == 1)
-                                    {
-                                        double val = 0;
-
-                                        if (Double.TryParse(Text.Replace(" ", "").Replace(',', separator), out val))
-                                        {
-                                            cell.Value = val;
-                                            cell.DataType = XLDataType.Number;
-                                            cell.Style.NumberFormat.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2WithSeparator);
-                                        }
-                                    }
-                                }
-
-
-
-
-                                if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontName))
-                                    cell.Style.Font.FontName = moxel.FontList[moxelCell.FormatCell.wFontNumber].lfFaceName;
-                                else
-                                    cell.Style.Font.FontName = defFontName;
-
-                                if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontSize))
-                                    cell.Style.Font.FontSize = -moxelCell.FormatCell.wFontSize / 4;
-                                else
-                                    cell.Style.Font.FontSize = DefFontSize;
-
-                                if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontColor))
-                                    cell.Style.Font.FontColor = XLColor.FromColor(moxelCell.FormatCell.FontColor);
-
-                                if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontWeight))
-                                    if (moxelCell.FormatCell.bFontBold == clFontWeight.Bold)
-                                        cell.Style.Font.SetBold();
-
-                                if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontItalic))
-                                    if (moxelCell.FormatCell.bFontItalic)
-                                        cell.Style.Font.SetItalic();
-
-                                if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontUnderline))
-                                    if (moxelCell.FormatCell.bFontUnderline)
-                                        cell.Style.Font.SetUnderline();
-
-                                if (moxelCell.Text.Contains("\r\n"))
-                                    cell.Style.Alignment.WrapText = true;
-
-
-
-                                if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.Control))
-                                {
-                                    if (moxelCell.FormatCell.bControlContent == TextControl.Auto)
-                                        if (string.IsNullOrEmpty(Row[columnNumber + 1].Text))
-                                            cell.Style.Alignment.WrapText = false;
-                                        else
-                                            cell.Style.Alignment.WrapText = true;
-
-                                    if (moxelCell.FormatCell.bControlContent == TextControl.Wrap)
-                                        cell.Style.Alignment.WrapText = true;
-
-                                    if (moxelCell.FormatCell.bControlContent == TextControl.Cut)
-                                    {
-                                        cell.Style.Alignment.WrapText = false;
-                                    }
-                                }
-
-                                cell.Style.Alignment.TextRotation = moxelCell.TextOrientation;
-
-                                if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignH))
-                                    switch (moxelCell.FormatCell.bHorAlign)
-                                    {
-                                        case TextHorzAlign.Left:
-                                            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
-                                            break;
-                                        case TextHorzAlign.Right:
-                                            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
-                                            break;
-                                        case TextHorzAlign.Center:
-                                            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
-                                            break;
-                                        case TextHorzAlign.Justify:
-                                            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Justify;
-                                            break;
-                                        case TextHorzAlign.BySelection:
-                                            cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.General;
-                                            break;
-                                        case TextHorzAlign.CenterBySelection:
+                                            string tText = Text.Replace(",", "").Replace('.', separator);
+                                            double val = 0;
+                                            if (Double.TryParse(tText, out val))
                                             {
-                                                worksheet.Range(rowNumber + 1, 1, rowNumber + 1, moxel.nAllColumnCount).Select();
-                                                worksheet.SelectedRanges.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.CenterContinuous;
-                                                MeasureAllROw = true;
-                                                break;
+                                                cell.Value = val;
+                                                cell.DataType = XLDataType.Number;
+                                                style.NumberFormat.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2WithSeparator);
                                             }
-                                        default:
-                                            break;
+                                        }
                                     }
-                                else
-                                    cell.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
-
-                                if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV))
-                                    switch (moxelCell.FormatCell.bVertAlign)
+                                    else
                                     {
-                                        case TextVertAlign.Bottom:
-                                            cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Bottom;
-                                            break;
-                                        case TextVertAlign.Middle:
-                                            cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
-                                            break;
-                                        case TextVertAlign.Top:
-                                            cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
-                                            break;
-                                        default:
-                                            break;
+
+                                        if (Commas > 0)
+                                        {
+                                            if (Commas == 1)
+                                            {
+                                                double val = 0;
+
+                                                if (Double.TryParse(Text.Replace(" ", "").Replace(',', separator), out val))
+                                                {
+                                                    cell.Value = val;
+                                                    cell.DataType = XLDataType.Number;
+                                                    style.NumberFormat.SetNumberFormatId((int)XLPredefinedFormat.Number.Precision2WithSeparator);
+                                                }
+                                            }
+                                        }
                                     }
-                                else
-                                    cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Bottom;
 
-                                if (AutoHeight)
-                                    using (Font fn = new Font(cell.Style.Font.FontName, (float)cell.Style.Font.FontSize, cell.Style.Font.Bold ? FontStyle.Bold : FontStyle.Regular))
+                                        lock (style)
+                                        {
+                                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontName))
+                                                style.Font.FontName = moxel.FontList[moxelCell.FormatCell.wFontNumber].lfFaceName;
+                                            else
+                                                style.Font.FontName = defFontName;
+
+
+                                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontSize))
+                                                style.Font.FontSize = -moxelCell.FormatCell.wFontSize / 4;
+                                            else
+                                                style.Font.FontSize = DefFontSize;
+
+                                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontColor))
+                                                style.Font.FontColor = XLColor.FromColor(moxelCell.FormatCell.FontColor);
+                                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontWeight))
+                                                if (moxelCell.FormatCell.bFontBold == clFontWeight.Bold)
+                                                    style.Font.SetBold();
+                                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontItalic))
+                                                if (moxelCell.FormatCell.bFontItalic)
+                                                    style.Font.SetItalic();
+
+                                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontUnderline))
+                                                if (moxelCell.FormatCell.bFontUnderline)
+                                                    style.Font.SetUnderline();
+
+
+                                            style.Alignment.WrapText = moxelCell.Text.Contains("\r\n");
+
+
+
+
+                                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.Control))
+                                            {
+                                                if (moxelCell.FormatCell.bControlContent == TextControl.Auto)
+                                                    if (string.IsNullOrEmpty(Row[columnNumber + 1].Text))
+                                                        style.Alignment.WrapText = false;
+                                                    else
+                                                        style.Alignment.WrapText = true;
+
+                                                if (moxelCell.FormatCell.bControlContent == TextControl.Wrap)
+                                                    style.Alignment.WrapText = true;
+
+                                                if (moxelCell.FormatCell.bControlContent == TextControl.Cut)
+                                                {
+                                                    style.Alignment.WrapText = false;
+                                                }
+                                            }
+
+                                            style.Alignment.TextRotation = moxelCell.TextOrientation;
+
+
+                                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignH))
+                                                switch (moxelCell.FormatCell.bHorAlign)
+                                                {
+                                                    case TextHorzAlign.Left:
+                                                        style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+                                                        break;
+                                                    case TextHorzAlign.Right:
+                                                        style.Alignment.Horizontal = XLAlignmentHorizontalValues.Right;
+                                                        break;
+                                                    case TextHorzAlign.Center:
+                                                        style.Alignment.Horizontal = XLAlignmentHorizontalValues.Center;
+                                                        break;
+                                                    case TextHorzAlign.Justify:
+                                                        style.Alignment.Horizontal = XLAlignmentHorizontalValues.Justify;
+                                                        break;
+                                                    case TextHorzAlign.BySelection:
+                                                        style.Alignment.Horizontal = XLAlignmentHorizontalValues.General;
+                                                        break;
+                                                    case TextHorzAlign.CenterBySelection:
+                                                        {
+                                                            worksheet.Range(rowNumber + 1, 1, rowNumber + 1, moxel.nAllColumnCount).Select();
+                                                            worksheet.SelectedRanges.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.CenterContinuous;
+                                                            MeasureAllROw = true;
+                                                            break;
+                                                        }
+                                                    default:
+                                                        break;
+                                                }
+                                            else
+
+                                                style.Alignment.Horizontal = XLAlignmentHorizontalValues.Left;
+
+                                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV))
+                                                switch (moxelCell.FormatCell.bVertAlign)
+                                                {
+                                                    case TextVertAlign.Bottom:
+                                                        style.Alignment.Vertical = XLAlignmentVerticalValues.Bottom;
+                                                        break;
+                                                    case TextVertAlign.Middle:
+                                                        style.Alignment.Vertical = XLAlignmentVerticalValues.Center;
+                                                        break;
+                                                    case TextVertAlign.Top:
+                                                        style.Alignment.Vertical = XLAlignmentVerticalValues.Top;
+                                                        break;
+                                                    default:
+                                                        break;
+                                                }
+                                            else
+                                                style.Alignment.Vertical = XLAlignmentVerticalValues.Bottom;
+                                        }
+                                    
+
+                                    if (AutoHeight)
+                                        using (Font fn = new Font(style.Font.FontName, (float)style.Font.FontSize, style.Font.Bold ? FontStyle.Bold : FontStyle.Regular))
+                                        {
+                                            double AreaWidth = 0d;
+
+                                            if (MeasureAllROw)
+                                                AreaWidth = MoxelWidthToPixels(moxel.GetWidth(0, moxel.nAllColumnCount));
+                                            else
+                                                AreaWidth = MoxelWidthToPixels(moxel.GetWidth(columnNumber, columnNumber + cell.ColumnCount() - 1)); //+ moxel.GetColumnWidth(columnNumber)
+
+                                            SizeF stringSize;
+
+                                            if (!style.Alignment.WrapText)
+                                            {
+                                                lock (EmptyGraphics)
+                                                    stringSize = EmptyGraphics.MeasureString(Text, fn);
+                                            }
+                                            else
+                                                stringSize = MeasureString(Text, fn, (int)Math.Round(AreaWidth));
+
+                                            int heigth = (int)Math.Ceiling(stringSize.Height / cell.RowCount() / 1.27 * 4);
+
+                                            rowHeight = Math.Max(Math.Max(heigth, 45), rowHeight);
+                                            lock (style)
+                                            {
+                                                if (style.Alignment.Vertical == XLAlignmentVerticalValues.Bottom && style.Alignment.WrapText && (moxelCell.TextOrientation == 0))
+                                                    style.Alignment.Vertical = XLAlignmentVerticalValues.Justify;
+                                            }
+                                        }
+                                }
+
+                                    lock (style)
                                     {
-                                        double AreaWidth = 0d;
+                                        if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderBottom))
+                                            style.Border.BottomBorder = GetBorderStyle(moxelCell.FormatCell.bBorderBottom);
 
-                                        if (MeasureAllROw)
-                                            AreaWidth = MoxelWidthToPixels(moxel.GetWidth(0, moxel.nAllColumnCount));
-                                        else
-                                            AreaWidth = MoxelWidthToPixels(moxel.GetWidth(columnNumber, columnNumber + cell.ColumnCount() - 1) + moxel.GetColumnWidth(columnNumber));
+                                        if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
+                                            style.Border.LeftBorder = GetBorderStyle(moxelCell.FormatCell.bBorderLeft);
 
-                                        SizeF stringSize;
+                                        if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderTop))
+                                            style.Border.TopBorder = GetBorderStyle(moxelCell.FormatCell.bBorderTop);
 
-                                        if (!cell.Style.Alignment.WrapText)
-                                            stringSize = EmptyGraphics.MeasureString(Text, fn);
-                                        else
-                                            stringSize = MeasureString(Text, fn, (int)Math.Round(AreaWidth));
+                                        if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
+                                            style.Border.RightBorder = GetBorderStyle(moxelCell.FormatCell.bBorderRight);
 
-                                        int heigth = (int)Math.Ceiling(stringSize.Height / cell.RowCount() / 1.27 * 4);
+                                        if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
+                                            style.Fill.BackgroundColor = XLColor.FromColor(moxelCell.FormatCell.BgColor);
 
-                                        rowHeight = Math.Max(Math.Max(heigth, 45), rowHeight);
-
-                                        if (cell.Style.Alignment.Vertical == XLAlignmentVerticalValues.Bottom && cell.Style.Alignment.WrapText && (moxelCell.TextOrientation == 0))
-                                            cell.Style.Alignment.Vertical = XLAlignmentVerticalValues.Justify;
+                                        style.Border.BottomBorderColor = XLColor.FromColor(moxelCell.FormatCell.BorderColor);
+                                        style.Border.TopBorderColor = XLColor.FromColor(moxelCell.FormatCell.BorderColor);
+                                        style.Border.RightBorderColor = XLColor.FromColor(moxelCell.FormatCell.BorderColor);
+                                        style.Border.LeftBorderColor = XLColor.FromColor(moxelCell.FormatCell.BorderColor);
                                     }
                             }
 
-                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderBottom))
-                                cell.Style.Border.BottomBorder = GetBorderStyle(moxelCell.FormatCell.bBorderBottom);
-                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
-                                cell.Style.Border.LeftBorder = GetBorderStyle(moxelCell.FormatCell.bBorderLeft);
-                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderTop))
-                                cell.Style.Border.TopBorder = GetBorderStyle(moxelCell.FormatCell.bBorderTop);
-                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
-                                cell.Style.Border.RightBorder = GetBorderStyle(moxelCell.FormatCell.bBorderRight);
+                            Interlocked.Decrement(ref totalCells);
+                            if (totalCells == 0)
+                                RowFinish.Set();
+                        });
 
-                            if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
-                                cell.Style.Fill.BackgroundColor = XLColor.FromColor(moxelCell.FormatCell.BgColor);
+                        await Task.Run(() => RowFinish.WaitOne());
 
-                            cell.Style.Border.BottomBorderColor = XLColor.FromColor(moxelCell.FormatCell.BorderColor);
-                            cell.Style.Border.TopBorderColor = XLColor.FromColor(moxelCell.FormatCell.BorderColor);
-                            cell.Style.Border.RightBorderColor = XLColor.FromColor(moxelCell.FormatCell.BorderColor);
-                            cell.Style.Border.LeftBorderColor = XLColor.FromColor(moxelCell.FormatCell.BorderColor);
-
-
-                        }
                         if (AutoHeight)
                             if (rowHeight > 0)
-                                Row.Height = (short)Math.Round(rowHeight, 0);
-                            else
-                                rowHeight = 45;
+                                    Row.Height = (short)Math.Round(rowHeight, 0);
+                                else
+                                    rowHeight = 45;
                     }
                     else
                         rowHeight = 45;
 
-                    worksheet.Row(rowNumber + 1).Height = MoxelHeightToExcel(rowHeight);
-                };
+                   lock(worksheet)
+                        worksheet.Row(rowNumber + 1).Height = MoxelHeightToExcel(rowHeight);
 
-                foreach(EmbeddedObject obj in moxel.Objects)
+                    progress = count * 100 / moxel.nAllRowCount;
+                    if (progressor != progress)
+                    {
+                        progressor = progress;
+                        onProgress?.Invoke(progressor);
+                    }
+
+                    System.Threading.Interlocked.Increment(ref count);
+
+                    if (count == moxel.nAllRowCount)
+                        finishEvent.Set();
+                });
+
+                finishEvent.WaitOne();
+
+                foreach (EmbeddedObject obj in moxel.Objects)
                 {
                     using (var ms = new MemoryStream())
                     {
-                        var zoomfactor = obj.Picture.dwType == ObjectType.Ole ? 3: 1.5;
                         switch (obj.Picture.dwType)
                         {
                             case ObjectType.Ole:
-                                
+
                             case ObjectType.Picture:
                                 {
+
+                                    var zoomfactorY = (double)obj.pObject.Height / (double)obj.ImageArea.Height;
+                                    var zoomfactorX = (double)obj.pObject.Width / (double)obj.ImageArea.Width;
+
                                     ///Странныый косяк с GDI+. Без такого финта выдает неопознанную ошибку
                                     using (var bmp = new Bitmap(obj.pObject))
                                         bmp.Save(ms, ImageFormat.Png);
 
-                                    if (obj.ImageArea.Height < obj.pObject.Height / zoomfactor)
+                                    if (obj.ImageArea.Height < obj.pObject.Height / zoomfactorY)
                                     {
                                         worksheet.Row(obj.Picture.dwRowEnd).Height += (obj.pObject.Height - obj.ImageArea.Height) / 4;
                                         moxel.Rows[obj.Picture.dwRowEnd - 1].Height = (short)(worksheet.Row(obj.Picture.dwRowEnd).Height * 4);
                                     }
-                                    
+
 
                                     var picture = worksheet.AddPicture(ms, XLPictureFormat.Png, $"D{obj.Picture.dwZOrder}");
                                     var topLeftCell = worksheet.Cell(obj.Picture.dwRowStart + 1, obj.Picture.dwColumnStart + 1);
                                     picture.Placement = XLPicturePlacement.Move;
-                                    picture.Width = obj.ImageArea.Width;
-                                    picture.Height = (int)(obj.pObject.Height / zoomfactor);
+                                    picture.Width = (int)Math.Round(obj.pObject.Width / zoomfactorX);
+                                    picture.Height = (int)Math.Round(obj.pObject.Height / zoomfactorY);
                                     picture.MoveTo(topLeftCell, obj.Picture.dwOffsetLeft / 3, obj.Picture.dwOffsetTop / 3);
 
 
@@ -475,13 +532,13 @@ namespace Moxel
                                 }
                             default:
                                 break;
-                            
+
                         }
-                      }
+                    }
                 }
 
-                if(!string.IsNullOrEmpty(moxel.Header.Text))
-                    worksheet.PageSetup.Header.Left.AddText(moxel.Header.Text.Replace("#D","&D").Replace("#T", "&T").Replace("#P", "&P").Replace("#Q", "&N"));
+                if (!string.IsNullOrEmpty(moxel.Header.Text))
+                    worksheet.PageSetup.Header.Left.AddText(moxel.Header.Text.Replace("#D", "&D").Replace("#T", "&T").Replace("#P", "&P").Replace("#Q", "&N"));
 
                 if (!string.IsNullOrEmpty(moxel.Footer.Text))
                     worksheet.PageSetup.Footer.Left.AddText(moxel.Footer.Text.Replace("#D", "&D").Replace("#T", "&T").Replace("#P", "&P").Replace("#Q", "&N"));
@@ -512,9 +569,10 @@ namespace Moxel
                     worksheet.PageSetup.Margins.Footer = 0;
                     worksheet.PageSetup.Margins.Header = 0;
                 }
+                
                 workbook.SaveAs(filename);
             }
-            
+
             return true;
         }
     }
