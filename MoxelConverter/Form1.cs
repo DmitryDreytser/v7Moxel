@@ -1,5 +1,6 @@
 ﻿using System;
 using System.IO;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 using Moxel;
 
@@ -14,23 +15,43 @@ namespace MoxelConverter
 
         private void button1_Click(object sender, EventArgs e)
         {
-            OpenFileDialog dd = new OpenFileDialog { Filter = "Moxel |*.mxl", DefaultExt = "mxl" };
-
-            dd.DefaultExt = "*.mxl";
+            OpenFileDialog dd = new OpenFileDialog {Filter = "Moxel |*.mxl", DefaultExt = "mxl"};
             if (dd.ShowDialog() != DialogResult.OK)
                 return;
-            string mdfilename = dd.FileName;
-            Moxel.Moxel mxl = new Moxel.Moxel(mdfilename);
+            var mdfilename = dd.FileName;
+            Task.Run(() =>
+                {
+                    button1.Invoke(new Action(() => button1.Enabled = false));
+                    Task.Run(() => ExcelWriter_onProgress(0));
+                    ExcelWriter.onProgress += ExcelWriter_onProgress;
+                    try
+                    {
+                        var mxl = new Moxel.Moxel(mdfilename);
+                        mxl.SaveAs(Path.ChangeExtension(mdfilename, "xlsx"), Moxel.SaveFormat.Excel);
+                    }
+                    catch
+                    {
+                        label1.Invoke(new Action(() => label1.Text = "Ошибка"));
+                    }
+                    finally
+                    {
 
-            mxl.SaveAs(Path.ChangeExtension(mdfilename, "xlsx"), Moxel.SaveFormat.Excel);
-            
-            mxl.SaveAs(Path.ChangeExtension(mdfilename, "pdf"), Moxel.SaveFormat.PDF);
-            mxl.SaveAs(Path.ChangeExtension(mdfilename, "html"), Moxel.SaveFormat.Html);
+                        ExcelWriter.onProgress -= ExcelWriter_onProgress;
+                        Task.Run(() => ExcelWriter_onProgress(100));
+                        button1.Invoke(new Action(() => button1.Enabled = true));
+                    }
+                }
+            );
+        }
 
-            //Moxel.ExcelWriter.Save(mxl, mdfilename + ".xlsx");
-            //Moxel.PDFWriter.Save(mxl, Path.ChangeExtension(mdfilename, "pdf"));
-            //Moxel.HtmlWriter.Save(mxl, mdfilename + ".html");
-            
+        private void ExcelWriter_onProgress(int progress)
+        {
+            label1.Invoke(new Action(() => label1.Text = $"{progress} %"));
+        }
+
+        private void Form1_Load(object sender, EventArgs e)
+        {
+
         }
     }
 }
