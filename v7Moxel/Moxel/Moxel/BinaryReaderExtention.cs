@@ -193,7 +193,7 @@ namespace Moxel
         {
             int Count = br.ReadUInt16();
 
-            if (Count < 0)
+            if (Count > 65534)
                 Count = br.ReadInt32();
 
             return Count;
