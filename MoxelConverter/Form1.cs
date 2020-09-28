@@ -28,16 +28,15 @@ namespace MoxelConverter
                     {
                         var mxl = new Moxel.Moxel(mdfilename);
                         mxl.SaveAs(Path.ChangeExtension(mdfilename, "xlsx"), Moxel.SaveFormat.Excel);
+                        Task.Run(() => ExcelWriter_onProgress(100));
                     }
-                    catch
+                    catch(Exception ex)
                     {
-                        label1.Invoke(new Action(() => label1.Text = "Ошибка"));
+                        label1.Invoke(new Action(() => label1.Text = $"Ошибка {ex}"));
                     }
                     finally
                     {
-
                         ExcelWriter.onProgress -= ExcelWriter_onProgress;
-                        Task.Run(() => ExcelWriter_onProgress(100));
                         button1.Invoke(new Action(() => button1.Enabled = true));
                     }
                 }
