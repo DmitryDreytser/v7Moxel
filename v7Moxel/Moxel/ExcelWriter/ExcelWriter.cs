@@ -472,7 +472,7 @@ namespace Moxel
                     if (progressor != progress)
                     {
                         progressor = progress;
-                        onProgress?.Invoke(progressor);
+                        Task.Run( () => onProgress?.Invoke(progressor));
                     }
 
                     System.Threading.Interlocked.Increment(ref count);
