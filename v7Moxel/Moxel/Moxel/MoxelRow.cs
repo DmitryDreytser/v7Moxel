@@ -30,17 +30,15 @@ namespace Moxel
                     foreach (var cell in values.Values)
                     {
                         if (cell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.RowHeight))
-                        {
                             return cell.FormatCell.wHeight;
-                        }
 
-                        if (string.IsNullOrEmpty(cell.Text))
-                            return 0;
+                        //if (string.IsNullOrEmpty(cell.Text))
+                        //    return 0;
 
-                        if (string.IsNullOrEmpty(cell.Text) && cell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontSize))
-                        {
-                            return (int)Math.Floor(cell.FormatCell.wFontSize * (-1.3));
-                        }
+                        //if (string.IsNullOrEmpty(cell.Text) && cell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontSize))
+                        //{
+                        //    return (int)Math.Floor(cell.FormatCell.wFontSize * (-1.3));
+                        //}
                     }
                     return 0;
                 }

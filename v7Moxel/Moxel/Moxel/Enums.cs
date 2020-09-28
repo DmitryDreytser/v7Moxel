@@ -51,13 +51,14 @@ namespace Moxel
             Text = 0x80000000
         };
 
+        [Flags]
         public enum TextHorzAlign : byte
         {
             Left = 0,
             Right = 2,
             Justify = 4,
             Center = 6,
-            CenterBySelection = 0x26,
+            //CenterBySelection = 0x26,
             BySelection = 0x20
         };
 

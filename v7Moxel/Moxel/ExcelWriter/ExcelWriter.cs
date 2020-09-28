@@ -83,7 +83,7 @@ namespace Moxel
         }
 
         const float standard1CSymbol = 105f; //Стандартный символ 1С = 105 твипов. Это ширина символа "0" шрифтом Arial, размера 10
-        static float standardExcelSymbol = 12;   // Стандартный символ Экселя в пикселях. Шрифт по умолчанию - Calibri, размера 11
+        static float standardExcelSymbol = 7;   // Стандартный символ Экселя в пикселях. Шрифт по умолчанию - Calibri, размера 11
         static float UnitsPerPixel = WinApi.GetUnitsPerPixel();
 
         static Font DefaultExcelFont = null;
@@ -100,7 +100,7 @@ namespace Moxel
 
         static double MoxelWidthToPixels(double pt)
         {
-            return pt / 8d * standard1CSymbol / UnitsPerPixel;
+            return pt / 8.23d * standard1CSymbol / UnitsPerPixel;
         }
 
         static double MoxelHeightToPixels(double pt)
@@ -358,13 +358,13 @@ namespace Moxel
                                                     case TextHorzAlign.BySelection:
                                                         style.Alignment.Horizontal = XLAlignmentHorizontalValues.General;
                                                         break;
-                                                    case TextHorzAlign.CenterBySelection:
-                                                        {
-                                                            worksheet.Range(rowNumber + 1, 1, rowNumber + 1, moxel.nAllColumnCount).Select();
-                                                            worksheet.SelectedRanges.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.CenterContinuous;
-                                                            MeasureAllROw = true;
-                                                            break;
-                                                        }
+                                                    //case TextHorzAlign.CenterBySelection:
+                                                    //    {
+                                                    //        worksheet.Range(rowNumber + 1, 1, rowNumber + 1, moxel.nAllColumnCount).Select();
+                                                    //        worksheet.SelectedRanges.Style.Alignment.Horizontal = XLAlignmentHorizontalValues.CenterContinuous;
+                                                    //        MeasureAllROw = true;
+                                                    //        break;
+                                                    //    }
                                                     default:
                                                         break;
                                                 }
@@ -589,8 +589,6 @@ namespace Moxel
             using(var ms = new MemoryStream())
             using (var package = new ExcelPackage(ms))
             {
-                //var workbook = package.Workbook;
-
                 if (moxel.DefFormat.dwFlags.HasFlag(MoxelCellFlags.FontSize))
                     DefFontSize = -moxel.DefFormat.wFontSize / 4;
 
@@ -623,6 +621,10 @@ namespace Moxel
                     var count = 0;
                     var progressor = 0;
 
+                    var defVertAligne = moxel.DefFormat.dwFlags.HasFlag(MoxelCellFlags.AlignV) ? moxel.DefFormat.bVertAlign : TextVertAlign.Bottom;
+
+                    var defHorAligne = moxel.DefFormat.dwFlags.HasFlag(MoxelCellFlags.AlignH) ? moxel.DefFormat.bHorAlign : TextHorzAlign.Left;
+
                     foreach (var rowValue in moxel.Rows)
                     {
                         var row = rowValue.Value;
@@ -632,28 +634,25 @@ namespace Moxel
                         {
                             var moxelCell = row[columnNumber];
 
-                            if (moxelCell.FormatCell.bControlContent != TextControl.Wrap ||
-                                moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight)) continue;
+                            if (moxelCell.FormatCell.bControlContent != TextControl.Wrap || moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight)) continue;
 
-                            if (!string.IsNullOrEmpty(row[columnNumber + 1].Text) ||
-                                string.IsNullOrEmpty(row[columnNumber].Text)) continue;
+                            if (!string.IsNullOrEmpty(row[columnNumber + 1].Text) || string.IsNullOrEmpty(row[columnNumber].Text)) continue;
 
                             var cn = columnNumber + 1;
 
-                            while (string.IsNullOrEmpty(row[cn].Text) && cn < row.Count &&
-                                   !worksheet.Cells[rowNumber + 1, cn + 1].Merge)
+                            //while (string.IsNullOrEmpty(row[cn].Text) && cn < row.Count && !worksheet.Cells[rowNumber + 1, cn + 1].Merge)
+                            //    cn++;
+
+                            while(row[cn].FormatCell.bHorAlign.HasFlag(TextHorzAlign.BySelection) && row[cn].FormatCell.bBorderRight == BorderStyle.None)
                                 cn++;
 
                             if (cn > columnNumber + 1)
                                 worksheet.Cells[rowNumber + 1, columnNumber + 1, rowNumber + 1, cn].Merge = true;
                         }
-                    }
-
-                    ;
+                    };
 
 
-                    Parallel.For(0, moxel.nAllRowCount, new ParallelOptions {MaxDegreeOfParallelism = 1} ,(int rowNumber) =>
-                        //for (int rowNumber = 0; rowNumber < moxel.nAllRowCount; rowNumber++)
+                    Parallel.For(0, moxel.nAllRowCount, new ParallelOptions {MaxDegreeOfParallelism = 4} ,(int rowNumber) =>
                     {
                         MoxelRow Row = null;
                         if (moxel.Rows.ContainsKey(rowNumber))
@@ -679,10 +678,11 @@ namespace Moxel
 
                                 var lastCell = columnNumber;
 
-                                while (worksheet.Cells[rowNumber + 1, columnNumber + 1, rowNumber + 1, lastCell + 1].Merge)
-                                    lastCell++;
+                                string range = null;
+                                if (worksheet.Cells[rowNumber + 1, columnNumber + 1, rowNumber + 1, lastCell + 1].Merge)
+                                    range = worksheet.MergedCells[rowNumber + 1, columnNumber + 1];
 
-                                using (var cell = worksheet.Cells[rowNumber + 1, columnNumber + 1, rowNumber + 1, lastCell + 1])
+                                using (var cell = range == null ? worksheet.Cells[rowNumber + 1, columnNumber + 1, rowNumber + 1, lastCell + 1] : worksheet.Cells[range])
                                 {
                                     var text = moxelCell.Text;
 
@@ -766,8 +766,9 @@ namespace Moxel
                                         cell.Style.TextRotation = moxelCell.TextOrientation;
 
 
-                                        if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignH))
-                                            switch (moxelCell.FormatCell.bHorAlign)
+                                        var alignHor = moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignH) ? moxelCell.FormatCell.bHorAlign : (Row.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignH) ? Row.FormatCell.bHorAlign : (moxel.DefFormat.dwFlags.HasFlag(MoxelCellFlags.AlignH) ? moxel.DefFormat.bHorAlign : TextHorzAlign.Left));
+
+                                        switch (alignHor)
                                             {
                                                 case TextHorzAlign.Left:
                                                     cell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
@@ -781,37 +782,33 @@ namespace Moxel
                                                 case TextHorzAlign.Justify:
                                                     cell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Justify;
                                                     break;
-                                                case TextHorzAlign.BySelection:
-                                                    cell.Style.HorizontalAlignment =
-                                                        ExcelHorizontalAlignment.Distributed;
-                                                    break;
-                                                case TextHorzAlign.CenterBySelection:
-                                                {
-                                                    worksheet.Cells[rowNumber + 1, 1, rowNumber + 1,
-                                                            moxel.nAllColumnCount].Style.HorizontalAlignment
-                                                        = ExcelHorizontalAlignment.CenterContinuous;
-                                                    measureAllRow = true;
-                                                    break;
-                                                }
+                                                //case TextHorzAlign.BySelection:
+                                                //    cell.Style.HorizontalAlignment =
+                                                //        ExcelHorizontalAlignment.Distributed;
+                                                //    break;
+                                                //case TextHorzAlign.Center when moxelCell.FormatCell.bHorAlign.HasFlag(TextHorzAlign.BySelection):
+                                                //{
+                                                //    worksheet.Cells[rowNumber + 1, 1, rowNumber + 1, moxel.nAllColumnCount].Style.HorizontalAlignment
+                                                //        = ExcelHorizontalAlignment.CenterContinuous;
+                                                //    measureAllRow = true;
+                                                //    break;
+                                                //}
                                             }
-                                        else
-                                            cell.Style.HorizontalAlignment = ExcelHorizontalAlignment.Left;
 
-                                        if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV))
-                                            switch (moxelCell.FormatCell.bVertAlign)
-                                            {
-                                                case TextVertAlign.Bottom:
-                                                    cell.Style.VerticalAlignment = ExcelVerticalAlignment.Bottom;
-                                                    break;
-                                                case TextVertAlign.Middle:
-                                                    cell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
-                                                    break;
-                                                case TextVertAlign.Top:
-                                                    cell.Style.VerticalAlignment = ExcelVerticalAlignment.Top;
-                                                    break;
-                                            }
-                                        else
-                                            cell.Style.VerticalAlignment = ExcelVerticalAlignment.Bottom;
+                                        var alignVert = moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV) ? moxelCell.FormatCell.bVertAlign : (Row.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV) ? Row.FormatCell.bVertAlign : (moxel.DefFormat.dwFlags.HasFlag(MoxelCellFlags.AlignV) ? moxel.DefFormat.bVertAlign : TextVertAlign.Bottom));
+
+                                        switch (alignVert)
+                                        {
+                                            case TextVertAlign.Bottom:
+                                                cell.Style.VerticalAlignment = ExcelVerticalAlignment.Bottom;
+                                                break;
+                                            case TextVertAlign.Middle:
+                                                cell.Style.VerticalAlignment = ExcelVerticalAlignment.Center;
+                                                break;
+                                            case TextVertAlign.Top:
+                                                cell.Style.VerticalAlignment = ExcelVerticalAlignment.Top;
+                                                break;
+                                        }
 
                                         if (AutoHeight)
                                             using (var fn = new Font(cell.Style.Font.Name, cell.Style.Font.Size,
@@ -820,11 +817,9 @@ namespace Moxel
                                                 var areaWidth = 0d;
 
                                                 if (measureAllRow)
-                                                    areaWidth = MoxelWidthToPixels(moxel.GetWidth(0,
-                                                        moxel.nAllColumnCount));
+                                                    areaWidth = MoxelWidthToPixels(moxel.GetWidth(0, moxel.nAllColumnCount));
                                                 else
-                                                    areaWidth = MoxelWidthToPixels(moxel.GetWidth(columnNumber,
-                                                        columnNumber + cell.Columns));
+                                                    areaWidth = MoxelWidthToPixels(moxel.GetWidth(columnNumber, columnNumber + cell.Columns));
 
                                                 SizeF stringSize;
 
@@ -840,9 +835,9 @@ namespace Moxel
                                                     (int) Math.Ceiling(stringSize.Height / cell.Rows / 1.27 * 4);
 
                                                 rowHeight = Math.Max(Math.Max(heigth, 45), rowHeight);
-                                                if (cell.Style.VerticalAlignment == ExcelVerticalAlignment.Bottom &&
-                                                    cell.Style.WrapText && (moxelCell.TextOrientation == 0))
-                                                    cell.Style.VerticalAlignment = ExcelVerticalAlignment.Justify;
+                                                if (moxelCell.FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV))
+                                                    if (cell.Style.VerticalAlignment == ExcelVerticalAlignment.Bottom && cell.Style.WrapText && (moxelCell.TextOrientation == 0))
+                                                        cell.Style.VerticalAlignment = ExcelVerticalAlignment.Justify;
                                             }
                                     }
 
@@ -899,11 +894,7 @@ namespace Moxel
                                         var e = ex;
                                     }
                                 }
-
-                                columnNumber = lastCell;
-                            }
-
-                            ;
+                            };
 
                             if (AutoHeight)
                                 if (rowHeight > 0)

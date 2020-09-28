@@ -89,7 +89,7 @@ namespace Moxel
 
                 if (Format.dwFlags.HasFlag(MoxelCellFlags.AlignH))
                 {
-                    if (Format.bHorAlign == TextHorzAlign.CenterBySelection)
+                    if (Format.bHorAlign.HasFlag( TextHorzAlign.BySelection) && Format.bHorAlign.HasFlag(TextHorzAlign.Center))
                     {
                         CellStyle.Set("text-align", "center");
                     }
@@ -348,7 +348,7 @@ namespace Moxel
 
                             if (string.IsNullOrEmpty(NextColumnCelll.Text))
                             {
-                                if (FormatCell.bHorAlign == TextHorzAlign.CenterBySelection 
+                                if (FormatCell.bHorAlign.HasFlag(TextHorzAlign.BySelection) && FormatCell.bHorAlign.HasFlag(TextHorzAlign.Center)
                                     && !FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight) 
                                     && !NextColumnCelll.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
                                 {
@@ -503,7 +503,7 @@ namespace Moxel
                 if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignH))
                 {
 
-                    if (FormatCell.bHorAlign == TextHorzAlign.CenterBySelection)
+                    if (FormatCell.bHorAlign.HasFlag(TextHorzAlign.BySelection) && FormatCell.bHorAlign.HasFlag(TextHorzAlign.Center))
                     {
                         PictureStyle.Set("text-align", "center");
                     }
