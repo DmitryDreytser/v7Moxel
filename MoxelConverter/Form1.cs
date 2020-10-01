@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Diagnostics;
 using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -24,10 +25,16 @@ namespace MoxelConverter
                     button1.Invoke(new Action(() => button1.Enabled = false));
                     Task.Run(() => ExcelWriter_onProgress(0));
                     ExcelWriter.onProgress += ExcelWriter_onProgress;
+                    var load = 0L;
+                    var save = 0L;
                     try
                     {
+                        var sw = Stopwatch.StartNew();
                         var mxl = new Moxel.Moxel(mdfilename);
+                        load = sw.ElapsedMilliseconds;
+                        sw.Restart();
                         mxl.SaveAs(Path.ChangeExtension(mdfilename, "xlsx"), Moxel.SaveFormat.Excel);
+                        save = sw.ElapsedMilliseconds;
                         Task.Run(() => ExcelWriter_onProgress(100));
                     }
                     catch(Exception ex)
@@ -38,6 +45,7 @@ namespace MoxelConverter
                     {
                         ExcelWriter.onProgress -= ExcelWriter_onProgress;
                         button1.Invoke(new Action(() => button1.Enabled = true));
+                        label1.Invoke(new Action(() => label1.Text = $"Загрузка {load}мс\r\nСохранение {save}мс"));
                     }
                 }
             );
