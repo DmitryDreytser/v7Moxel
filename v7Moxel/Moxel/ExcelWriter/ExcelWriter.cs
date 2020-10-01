@@ -25,6 +25,8 @@ namespace Moxel
     {
         public static event ConverterProgressor onProgress;
         public static PageSettings PageSettings = null;
+        
+        public static int MaxDegreeOfParallelism = Environment.ProcessorCount / 4 * 3;
 
         static double PixelHeightToExcel(double pixels)
         {
@@ -652,7 +654,7 @@ namespace Moxel
                     };
 
 
-                    Parallel.For(0, moxel.nAllRowCount, new ParallelOptions {MaxDegreeOfParallelism = 4} ,(int rowNumber) =>
+                    Parallel.For(0, moxel.nAllRowCount, new ParallelOptions {MaxDegreeOfParallelism = MaxDegreeOfParallelism} ,(int rowNumber) =>
                     {
                         MoxelRow Row = null;
                         if (moxel.Rows.ContainsKey(rowNumber))

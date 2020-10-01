@@ -39,6 +39,9 @@ namespace Moxel
 
         [Alias("СтекОшибки")]
         string GetErrorStackTrace();
+
+        [Alias("КоличествоПотоковКонвертации")]
+        int MaxDegreeOfParallelism { get; set; }
     }
 
 
@@ -68,14 +71,13 @@ namespace Moxel
         public static CTableOutputContext TableObject = null;
         static int ObjectCount = 0;
 
-        public int IsWrapped { get { return SaveWrapper.isWraped ? 1 : 0; } }
-
-        public int WrapSaveAs(int doWrap = 1)
-        {
-            return SaveWrapper.Wrap(doWrap == 1);
+        public int IsWrapped { get => SaveWrapper.isWraped ? 1 : 0; }
+        public int MaxDegreeOfParallelism { get => ExcelWriter.MaxDegreeOfParallelism ; set
+            {
+                ExcelWriter.MaxDegreeOfParallelism = value;
+            }
         }
-
-
+        public int WrapSaveAs(int doWrap = 1) => SaveWrapper.Wrap(doWrap == 1);
         public void ReadFromMemory(object Table)
         {
             try

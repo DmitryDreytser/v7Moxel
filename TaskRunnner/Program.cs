@@ -19,8 +19,8 @@ namespace TaskRunnner
         /// <param name="args">Параметры командной строки</param>
         /// первый параметр - имя файла mxl
         /// второй параметр - имя файла для сохранения
-        /// третий параметр - указатель HWnd для возврата текущего прогресса конвертации
-        [STAThread]
+        /// третий параметр - максимальное количество потоков записи таблицы Эксель
+        //[STAThread]
         static int Main(string[] args)
         {
             if (args.Length == 0)
@@ -28,9 +28,9 @@ namespace TaskRunnner
 
             string fileName = args[0];
             string resultFileName = args[1];
-            
+
             if (args.Length == 3)
-                ShowProgress = true;
+                int.TryParse(args[2], out Moxel.ExcelWriter.MaxDegreeOfParallelism);
 
             Debug.WriteLine(args[0]);
             Debug.WriteLine(args[1]);

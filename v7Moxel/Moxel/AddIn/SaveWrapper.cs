@@ -35,7 +35,7 @@ namespace Moxel
         //SaveToText = 0x2500A
         public static string utilPath = Path.Combine(Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location), "TaskRunnner.exe");
 
-        public static bool CanSaveExternal =>  File.Exists(utilPath);
+        public static bool CanSaveExternal => File.Exists(utilPath);
 
         public static async Task<int> SaveExternal(string MoxelName, string FileName)
         {
@@ -43,7 +43,7 @@ namespace Moxel
             {
                 using (Process ExCon = new Process())
                 {
-                    ExCon.StartInfo = new ProcessStartInfo { FileName = utilPath, Arguments = $"\"{MoxelName}\" \"{FileName}\"", CreateNoWindow = true, RedirectStandardOutput = true, UseShellExecute = false };
+                    ExCon.StartInfo = new ProcessStartInfo { FileName = utilPath, Arguments = $"\"{MoxelName}\" \"{FileName}\" {ExcelWriter.MaxDegreeOfParallelism}", CreateNoWindow = true, RedirectStandardOutput = true, UseShellExecute = false };
                     ExCon.OutputDataReceived += ExCon_OutputDataReceived;
                     ExCon.Start();
                     ExCon.BeginOutputReadLine();

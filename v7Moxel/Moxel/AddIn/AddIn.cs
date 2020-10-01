@@ -500,6 +500,13 @@ namespace Moxel
                             found = true;
                             break;
                         }
+
+                        if (propertyNameToNumber.ContainsKey(entry.Value.ToString().ToUpper()))
+                        {
+                            propertyNumberToPropertyInfoIdx.Add(entry.Key, propertyNameToNumber[entry.Value.ToString().ToUpper()]);
+                            found = true;
+                            break;
+                        };
                     }
                     if (!found && !propertyNameToNumber.ContainsKey(entry.Value.ToString().ToUpper()))
                         throw new COMException("Свойство " + entry.Value.ToString() + " не реализовано");
