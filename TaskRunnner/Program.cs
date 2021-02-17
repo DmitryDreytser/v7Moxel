@@ -6,6 +6,7 @@ using System.Linq;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using v7Moxel;
+using v7Moxel.Moxel.ExcelWriter;
 
 namespace TaskRunnner
 {
@@ -30,7 +31,7 @@ namespace TaskRunnner
             string resultFileName = args[1];
 
             if (args.Length == 3)
-                int.TryParse(args[2], out Moxel.ExcelWriter.MaxDegreeOfParallelism);
+                int.TryParse(args[2], out ExcelWriter.MaxDegreeOfParallelism);
 
             Debug.WriteLine(args[0]);
             Debug.WriteLine(args[1]);
@@ -44,7 +45,7 @@ namespace TaskRunnner
                 case ".xlsx":
                     Debug.WriteLine("Сохраняем в Excel");
                     if (ShowProgress)
-                        Moxel.ExcelWriter.onProgress += ExcelWriter_onProgress;
+                        ExcelWriter.OnProgress += ExcelWriter_onProgress;
                     mxl.SaveAs(resultFileName, Moxel.SaveFormat.Excel);
                     return 1;
                 case ".html":

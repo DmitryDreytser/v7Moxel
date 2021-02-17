@@ -9,16 +9,16 @@ namespace Moxel
         [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
         public delegate void SerializeDelegate(IntPtr pObj, IntPtr pArch);
 
-        static IntPtr hMoxel = WinApi.GetModuleHandle("moxel.dll");
+        private static readonly IntPtr HMoxel = WinApi.GetModuleHandle("moxel.dll");
 
-        public static SerializeDelegate GetSerializer(string EntryPoint)
+        public static SerializeDelegate GetSerializer(string entryPoint)
         {
-            return GetDelegate<SerializeDelegate>(EntryPoint);
+            return GetDelegate<SerializeDelegate>(entryPoint);
         }
 
-        public static T GetDelegate<T>(string FuncName)
+        public static T GetDelegate<T>(string funcName)
         {
-            return Marshal.GetDelegateForFunctionPointer<T>(WinApi.GetProcAddress(hMoxel, FuncName));
+            return Marshal.GetDelegateForFunctionPointer<T>(WinApi.GetProcAddress(HMoxel, funcName));
         }
     }
 }

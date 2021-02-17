@@ -4,6 +4,7 @@ using System.IO;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using Moxel;
+using v7Moxel.Moxel.ExcelWriter;
 
 namespace MoxelConverter
 {
@@ -24,7 +25,7 @@ namespace MoxelConverter
                 {
                     button1.Invoke(new Action(() => button1.Enabled = false));
                     Task.Run(() => ExcelWriter_onProgress(0));
-                    ExcelWriter.onProgress += ExcelWriter_onProgress;
+                    ExcelWriter.OnProgress += ExcelWriter_onProgress;
                     var load = 0L;
                     var save = 0L;
                     try
@@ -43,7 +44,7 @@ namespace MoxelConverter
                     }
                     finally
                     {
-                        ExcelWriter.onProgress -= ExcelWriter_onProgress;
+                        ExcelWriter.OnProgress -= ExcelWriter_onProgress;
                         button1.Invoke(new Action(() => button1.Enabled = true));
                         label1.Invoke(new Action(() => label1.Text = $"Загрузка {load}мс\r\nСохранение {save}мс"));
                     }

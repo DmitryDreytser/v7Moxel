@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.IO;
 using System;
+using v7Moxel.Moxel.ExcelWriter;
 
 namespace Moxel
 {
@@ -213,7 +214,7 @@ namespace Moxel
             }
             else
             {
-                using (var fs = new FileStream(FileName, FileMode.Open, FileAccess.Read, FileShare.Read))
+                using (var fs = new FileStream(FileName, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024 * 100))
                 {
                     Load(fs);
                 }
@@ -299,6 +300,11 @@ namespace Moxel
         {
             if(disposing)
             {
+                foreach(var obj in Objects)
+                {
+                    obj.pObject?.Dispose();
+                }
+
                 FormatsList = null;
                 stringTable = null;
                 FontList = null;

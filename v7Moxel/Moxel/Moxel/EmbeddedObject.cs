@@ -2,6 +2,7 @@
 using System.Drawing;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Runtime.Remoting;
 using System.Text;
 using static Moxel.Moxel;
 
@@ -43,7 +44,7 @@ namespace Moxel
             }
         }
         public Picture Picture;
-        public Bitmap pObject;
+        public CachedImage pObject;
         public object OleObject;
         public string ProgID;
         public Guid ClsId;
@@ -67,7 +68,7 @@ namespace Moxel
             }
         }
 
-        Bitmap LoadOleObject(BinaryReader br)
+        private CachedImage LoadOleObject(BinaryReader br)
         {
             string classname = string.Empty;
             short wClassNameFlag = br.ReadInt16();
@@ -129,67 +130,88 @@ namespace Moxel
 
             //Rectangle rect = new Rectangle(0, 0, Size.Width * 3, Size.Height * 3);
             Rectangle rect = new Rectangle(0, 0, sizel.X / 26, sizel.Y / 26);
-            Bitmap m = new Bitmap(rect.Width, rect.Height);
-
-            using (Graphics g = Graphics.FromImage(m))
+            using (Bitmap m = new Bitmap(rect.Width, rect.Height))
             {
-                Color bgColor = Color.White;
-
-
-                bool MakeTransparent = false;
-                if (ProgID == "BMP1C.Bmp1cCtrl.1")
-                    if ((pOle as _DBmp_1c).GrMode == 1) // Иначе рисует только маску
-                    {
-                        (pOle as _DBmp_1c).GrMode = 2;
-                        MakeTransparent = true;
-                    }
-
-                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
+                using (Graphics g = Graphics.FromImage(m))
                 {
-                    int ColorIndex = FormatCell.bBackground;
-                    if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
-                        bgColor = Color.FromArgb((int)(a1CPallete[ColorIndex] + 0xFF000000));
+                    Color bgColor = Color.White;
+                    bool MakeTransparent = false;
+                    if (ProgID == "BMP1C.Bmp1cCtrl.1")
+                        if ((pOle as _DBmp_1c).GrMode == 1) // Иначе рисует только маску
+                        {
+                            (pOle as _DBmp_1c).GrMode = 2;
+                            MakeTransparent = true;
+                        }
+
+                    if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
+                    {
+                        int ColorIndex = FormatCell.bBackground;
+                        if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
+                            bgColor = Color.FromArgb((int)(a1CPallete[ColorIndex] + 0xFF000000));
+                    }
+                    else
+                        MakeTransparent = true;
+
+                    g.Clear(bgColor);
+                    HandleRef hdcsrc = new HandleRef(g, g.GetHdc());
+                    result = OLE32.OleDraw(pOle, 1, hdcsrc, ref rect);
+
+                    g.ReleaseHdc(hdcsrc.Handle);
+                    if (MakeTransparent)
+                        m.MakeTransparent(bgColor);
                 }
-                else
-                    MakeTransparent = true;
+                Marshal.ReleaseComObject(RootStorage);
+                Marshal.ReleaseComObject(LockBytes);
+                Marshal.FreeHGlobal(hGlobal);
 
-                g.Clear(bgColor);
-                HandleRef hdcsrc = new HandleRef(g, g.GetHdc());
-                result = OLE32.OleDraw(pOle, 1, hdcsrc, ref rect);
-
-                g.ReleaseHdc(hdcsrc.Handle);
-                if (MakeTransparent)
-                    m.MakeTransparent(bgColor);
+                OLE32.CoUninitialize();
+                return new CachedImage(m);
             }
-            Marshal.ReleaseComObject(RootStorage);
-            Marshal.ReleaseComObject(LockBytes);
-            Marshal.FreeHGlobal(hGlobal);
-
-            OLE32.CoUninitialize();
-            return m;
         }
 
-        private Bitmap LoadPicture(BinaryReader br)
+        public sealed class CachedImage: IDisposable
+        {
+            private string filename = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.jpg");
+            
+            public CachedImage(Bitmap source, bool leaveOpen = false)
+            {
+                source.Save(filename, System.Drawing.Imaging.ImageFormat.Png);
+                if (!leaveOpen)
+                    source.Dispose();
+            }
+
+            public static implicit operator Bitmap(CachedImage src)
+            {
+                return new Bitmap(src.filename);
+            }
+
+            public void Dispose()
+            {
+                if (File.Exists(filename))
+                    File.Delete(filename);
+            }
+        }
+
+        private CachedImage LoadPicture(BinaryReader br)
         {
             byte x = br.ReadByte();
             byte y = br.ReadByte();
             ushort z = br.ReadUInt16();
 
             int PictureSize = br.ReadInt32();
-            byte[] pictureBuffer = br.ReadBytes(PictureSize);
-
-            using (var memoryStream = new MemoryStream(pictureBuffer))
+            using (var memoryStream = new MemoryStream(br.ReadBytes(PictureSize)))
             {
-                Bitmap Pic = Image.FromStream(memoryStream) as Bitmap;
-                bool MakeTransparent = false;
+                using (Bitmap Pic = new Bitmap(memoryStream))
+                {
+                    bool MakeTransparent = false;
 
-                if (!FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
-                    MakeTransparent = true;
+                    if (!FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
+                        MakeTransparent = true;
 
-                if (MakeTransparent)
-                    Pic.MakeTransparent(Color.White);
-
-                return Pic;
+                    if (MakeTransparent)
+                        Pic.MakeTransparent(Color.White);
+                    return new CachedImage(Pic);
+                }
             }
         }
     }

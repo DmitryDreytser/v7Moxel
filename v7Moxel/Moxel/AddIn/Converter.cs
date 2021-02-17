@@ -8,6 +8,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using v7Moxel.Moxel.ExcelWriter;
 using static Moxel.MemoryReader;
 
 namespace Moxel
@@ -21,6 +22,9 @@ namespace Moxel
     {
         [Alias("Присоединить")]
         void Attach(object Table);
+
+        [Alias("Загрузить")]
+        void Load(string FileNAme);
 
         [Alias("ПерехватВключен")]
         int IsWrapped { get;}
@@ -93,12 +97,18 @@ namespace Moxel
             {
                 throw new Exception(ex.Message, ex);
             }
+            finally
+            {
+                mxl?.Dispose();
+                mxl = null;
+            }
         }
 
 
 
         public void Attach(object Table)
         {
+            mxl?.Dispose();
             try
             {
                 string tempfile = Path.GetTempFileName();
@@ -124,39 +134,58 @@ namespace Moxel
             }
         }
 
+        public void Load(string FileNAme)
+        {
+
+            if (!File.Exists(FileNAme))
+                throw new Exception($"Файл {FileNAme} не найден.");
+
+            mxl?.Dispose();
+            mxl = new Moxel(FileNAme);
+        }
+
         public string Save(string filename, SaveFormat format)
         {
-            if (mxl == null)
+            try
             {
-                if (TableObject != null)
-                    if (TableObject.SheetDoc.Length < 1024 * 1024 * 2 || !SaveWrapper.CanSaveExternal)
-                        mxl = ReadFromCSheetDoc(TableObject.SheetDoc);
-                    else
-                    {
-                        string tmpFileName = Path.GetTempFileName();
-                        TableObject.SheetDoc.SaveToFile(tmpFileName);
-                        if (SaveWrapper.SaveExternal(tmpFileName, filename).Result == 1)
-                        {
-                            File.Delete(tmpFileName);
-                            return filename;
-                        }
+                if (mxl == null)
+                {
+                    if (TableObject != null)
+                        if (TableObject.SheetDoc.Length < 1024 * 1024 * 2 || !SaveWrapper.CanSaveExternal)
+                            mxl = ReadFromCSheetDoc(TableObject.SheetDoc);
                         else
-                            throw new Exception("Ошибка записи.");
-                    }
+                        {
+                            string tmpFileName = Path.GetTempFileName();
+                            TableObject.SheetDoc.SaveToFile(tmpFileName);
+                            if (SaveWrapper.SaveExternal(tmpFileName, filename).Result == 1)
+                            {
+                                File.Delete(tmpFileName);
+                                return filename;
+                            }
+                            else
+                                throw new Exception("Ошибка записи.");
+                        }
+                    else
+                        throw new Exception("Таблица не загружена.");
+
+                }
+
+                if (mxl != null)
+                {
+                    mxl.SaveAs(filename, format);
+                    return filename;
+                }
                 else
+                {
                     throw new Exception("Таблица не загружена.");
-
+                }
             }
-
-            if (mxl != null)
+            finally
             {
-                mxl.SaveAs(filename, format);
+                mxl?.Dispose();
                 mxl = null;
-                return filename;
-            }
-            else
-            {
-                throw new Exception("Таблица не загружена.");
+                GC.Collect();
+                GC.Collect();
             }
         }
 
@@ -192,6 +221,8 @@ namespace Moxel
 
             mxl = null;
         }
+
+
 
         #endregion
 

@@ -3,7 +3,9 @@ using System.Runtime.InteropServices;
 using AddIn;
 using System.Reflection;
 using System.Collections;
+using System.Threading.Tasks;
 using System.Windows.Forms;
+using v7Moxel.Moxel.ExcelWriter;
 
 namespace Moxel
 {
@@ -142,7 +144,7 @@ namespace Moxel
                 MainWindow = Get1CWindow();
 
             if (MainWindow != IntPtr.Zero)
-                WinApi.SendMessage(Get1CWindow(), 866, 0, message);
+                Task.Run(() => WinApi.SendMessage(Get1CWindow(), 866, 0, message));
         }
 
         /// <summary>
@@ -175,7 +177,7 @@ namespace Moxel
                 if (statusLine == null)
                 {
                     statusLine = (IStatusLine)connection;
-                    ExcelWriter.onProgress += Writer_onProgress;
+                    ExcelWriter.OnProgress += Writer_onProgress;
                     HtmlWriter.onProgress += Writer_onProgress;
                     PDFWriter.onProgress += Writer_onProgress;
                 }
@@ -213,28 +215,30 @@ namespace Moxel
                 {
                     if (statusLine != null)
                     {
-                        while (Marshal.ReleaseComObject(statusLine) > 0) { };
+                        //while (Marshal.ReleaseComObject(statusLine) > 0) { };
                         Marshal.FinalReleaseComObject(statusLine);
                         statusLine = null;
                     }
 
                     if (errorLog != null)
                     {
-                        while (Marshal.ReleaseComObject(errorLog) > 0) { };
+                        //while (Marshal.ReleaseComObject(errorLog) > 0) { };
                         Marshal.FinalReleaseComObject(errorLog);
                         errorLog = null;
                     }
 
                     if (asyncEvent != null)
                     {
-                        while (Marshal.ReleaseComObject(asyncEvent) > 0) { };
+                        //while (Marshal.ReleaseComObject(asyncEvent) > 0) { };
                         Marshal.FinalReleaseComObject(asyncEvent);
                         asyncEvent = null;
                     }
-
-                    while (Marshal.ReleaseComObject(connect1c) > 0) { };
-                    Marshal.FinalReleaseComObject(connect1c);
-                    connect1c = null;
+                    if (connect1c != null)
+                    {
+                        //while (Marshal.ReleaseComObject(connect1c) > 0) { };
+                        Marshal.FinalReleaseComObject(connect1c);
+                        connect1c = null;
+                    }
                 }
                 catch { }
             }
