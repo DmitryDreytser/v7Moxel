@@ -204,6 +204,11 @@ namespace Moxel
             Load(ref buf);
         }
 
+        public Moxel(Stream stream)
+        {
+            Load(stream);
+        }
+
         public void Load(string FileName) 
         {
             if (new FileInfo(FileName).Length <= 1024)

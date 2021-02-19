@@ -86,7 +86,8 @@ namespace Moxel
             switch(format)
             {
                 case 0:
-                    File.WriteAllBytes(FileName, MemoryReader.ReadMoxel(pSheetDoc));
+                    new CSheetDoc(pSheetDoc).SaveToFile(FileName);
+                    //File.WriteAllBytes(FileName, MemoryReader.ReadMoxel(pSheetDoc));
                     return 0;
                 case 1:
                     return SaveToExcel(pSheetDoc, FileName);
@@ -102,7 +103,7 @@ namespace Moxel
         static int SaveToExcel(IntPtr pSheetDoc, string FileName)
         {
 
-            Converter.mxl = null;
+            Converter.mxl?.Dispose();
 
             try
             {
@@ -148,27 +149,20 @@ namespace Moxel
                         else
                             Converter.mxl.SaveAs(FileName + ".xlsx", SaveFormat.Excel);
                     }
-                    Converter.mxl = null;
-                    GC.Collect();
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
                     return 1;
                 }
                 catch (Exception ex)
                 {
-                    Converter.mxl = null;
-                    GC.Collect();
-                    GC.Collect();
-                    GC.WaitForPendingFinalizers();
                     RaiseExtRuntimeError?.Invoke($"Ошибка сохранения таблицы в XLSX: {ex}", 0);
+                }
+                finally
+                {
+                    Converter.mxl?.Dispose();
+                    Converter.mxl = null;
                 }
             }
             else
             {
-                Converter.mxl = null;
-                GC.Collect();
-                GC.Collect();
-                GC.WaitForPendingFinalizers();
                 RaiseExtRuntimeError?.Invoke("Ошибка сохранения таблицы в XLSX. Не удалось прочитать таблицу", 0);
             }
             return 0;

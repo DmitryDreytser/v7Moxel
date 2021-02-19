@@ -11,41 +11,43 @@ namespace Moxel
         public static byte[] ReadMoxel(IntPtr pSheetDoc)
         {
             CSheetDoc SheetDoc = new CSheetDoc(pSheetDoc);
-            CFile f = CFile.Create(SheetDoc.Length);
-            try
+            using (CFile f = CFile.Create(SheetDoc.Length))
             {
-                CArchive Arch = new CArchive(f, SheetDoc);
-                SheetDoc.Serialize(Arch);
-                return f.GetBufer();
-            }
-            catch (Exception ex)
-            {               
-                throw new Exception(ex.Message, ex);
-            }
-            finally
-            {
-                f = null;
+                try
+                {
+                    using (CArchive Arch = new CArchive(f, SheetDoc))
+                    {
+                        SheetDoc.Serialize(Arch);
+                        return f.GetBufer();
+                    }
+                }
+                catch (Exception ex)
+                {
+                    throw new Exception(ex.Message, ex);
+                }
             }
         }
 
         public static Moxel ReadFromCSheetDoc(CSheetDoc SheetDoc)
         {
-            CFile f = CFile.Create(SheetDoc.Length);
-            try
+            using (var ms = new MemoryStream())
             {
-                CArchive Arch = new CArchive(f, SheetDoc);
-                SheetDoc.Serialize(Arch);
-               
-                Moxel result = new Moxel(ref f.buffer);
-
-                f = null;
-
-                return result;
-            }
-            catch (Exception ex)
-            {
-                f = null;
-                throw new Exception(ex.Message, ex);
+                using (CFile f = CFile.FromStream(ms))
+                {
+                    try
+                    {
+                        using (CArchive Arch = new CArchive(f, SheetDoc))
+                        {
+                            SheetDoc.Serialize(Arch);
+                            Moxel result = new Moxel(f.GetStream());
+                            return result;
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new Exception(ex.Message, ex);
+                    }
+                }
             }
         }
 
@@ -76,18 +78,20 @@ namespace Moxel
             {
                 using (FileStream fs = File.OpenWrite(FileName))
                 {
-                    CFile f = CFile.FromFileStream(fs);
-                    try
+                    using (CFile f = CFile.FromFileStream(fs))
                     {
-                        CArchive Arch = new CArchive(f, this);
-                        Serialize(Arch);
-                        f = null;
-                        return true;
-                    }
-                    catch (Exception ex)
-                    {
-                        f = null;
-                        return false;
+                        try
+                        {
+                            using (CArchive Arch = new CArchive(f, this))
+                            {
+                                Serialize(Arch);
+                                return true;
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            return false;
+                        }
                     }
                 }
             }
@@ -104,7 +108,6 @@ namespace Moxel
             {
                _Serialize(this, Arch);
                 Arch.Flush(); // Допишем оставшийся в буфере кусок данных.
-                Arch = null; // И очистим CArchive
             }
         }
 
@@ -222,7 +225,7 @@ namespace Moxel
 
             public static implicit operator IntPtr(CObject obj)
             {
-                return obj.pObject;
+                return obj.Pointer;
             }
 
             public static implicit operator CObject(IntPtr pMem)
@@ -280,7 +283,7 @@ namespace Moxel
             }
         }
 
-        public class CFile : CObject
+        public class CFile : CObject, IDisposable
         {
             [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
             public delegate IntPtr CFileConstructor(IntPtr pMem, IntPtr hFile);
@@ -297,7 +300,10 @@ namespace Moxel
 
             private static CFile__Write OriginalWrite;
 
-            public byte[] buffer = new byte[1024];
+            public byte[] buffer = null;
+
+            private Stream stream;
+
             int position = 0;
 
             public byte[] GetBufer()
@@ -306,13 +312,48 @@ namespace Moxel
                 return buffer;
             }
 
-            public void Write(IntPtr _this, IntPtr lpBUf, int nCount)
+            public Stream GetStream()
+            {
+                unpatch();
+                stream.Seek(0, SeekOrigin.Begin);
+                return stream;
+            }
+
+            public void StreamWrite(IntPtr _this, IntPtr lpBUf, int nCount)
+            {
+                if (_this == pObject)
+                {
+                    unsafe
+                    {
+                        byte* ptr = (byte*)lpBUf.ToPointer();
+                        for (int i = 0; i < nCount; i++)
+                        {
+                            stream.WriteByte(ptr[i]);
+                        }
+                        position = (int)stream.Position;
+                    }
+                }
+                else
+                {
+                    OriginalWrite(_this, lpBUf, nCount); //На случай записи другого CFile из другого потока.
+                }
+            }
+
+            public void BufferWrite(IntPtr _this, IntPtr lpBUf, int nCount)
             {
                 if (_this == pObject)
                 {
                     if (buffer.Length < position + nCount + 1)
                         Array.Resize<byte>(ref buffer, position + nCount + 1);
 
+                    unsafe
+                    {
+                        byte* ptr = (byte*)lpBUf.ToPointer();
+                        for (int i = 0; i < nCount; i++)
+                        {
+                            stream.WriteByte(ptr[i]);
+                        }
+                    }
                     Marshal.Copy(lpBUf, buffer, position, nCount);
                     position += nCount;
                 }
@@ -322,7 +363,7 @@ namespace Moxel
                 }
             }
 
-            public CFile__Write WriteDelegate = null;
+            public CFile__Write WriteDelegate { get; set; }
             static IntPtr pWriteDelegate;
             static GCHandle hh;
             static IntPtr pVTable = IntPtr.Zero;
@@ -334,8 +375,12 @@ namespace Moxel
             {
                 if (patched)
                     return;
+                
+                if(stream == null)
+                    Handle = new CFile__Write(BufferWrite);
+                else
+                    Handle = new CFile__Write(StreamWrite);
 
-                Handle = new CFile__Write(Write);
                 hh = GCHandle.Alloc(Handle);
 
                 pWriteDelegate = Marshal.GetFunctionPointerForDelegate<CFile__Write>(Handle);
@@ -350,11 +395,12 @@ namespace Moxel
             }
 
             static CFile__Write Handle;
+            private bool disposedValue;
 
             public void unpatch()
             {
-
-                Array.Resize<byte>(ref buffer, position);
+                if(buffer != null)
+                    Array.Resize<byte>(ref buffer, position);
 
                 if (!patched)
                     return;
@@ -362,26 +408,35 @@ namespace Moxel
                 uint OldProtection;
                 WinApi.VirtualProtectEx(Process.GetCurrentProcess().Handle, FuncAddr, new IntPtr(4), 0x40, out OldProtection);
                 Marshal.WriteIntPtr(FuncAddr, old_Func); // Вернем оригинальную функцию.
-                WinApi.VirtualProtectEx(Process.GetCurrentProcess().Handle, FuncAddr, new IntPtr(4), OldProtection, out OldProtection);
+                WinApi.VirtualProtectEx(Process.GetCurrentProcess().Handle, FuncAddr, new IntPtr(4), OldProtection, out _);
                 if(hh.IsAllocated)
                     hh.Free();
                 patched = false;
             }
 
-            public CFile(IntPtr pMem, int bufferLength) : base(pMem)
+            private void InitPointers()
             {
-                // перехватим CFile::Write()
-                pVTable = Marshal.ReadIntPtr(pMem, 0);
                 old_Func = Marshal.ReadIntPtr(pVTable, 0x40); // CFile::Write находитс по смещение 0x40 от начала таблицы виртуальных функций.
                 OriginalWrite = Marshal.GetDelegateForFunctionPointer<CFile__Write>(old_Func);
                 FuncAddr = new IntPtr((Int64)pVTable + 0x40);
-                buffer = new byte[bufferLength + 1];
+                // перехватим CFile::Write()
                 patch();
+            }
+
+            public CFile(IntPtr pMem, int bufferLength) : this(pMem)
+            {
+                buffer = new byte[bufferLength + 1];
+                InitPointers();
+            }
+
+            public CFile(IntPtr pMem, Stream _stream) : this(pMem)
+            {
+                stream = _stream;
+                InitPointers();
             }
 
             public CFile(IntPtr pMem) : base(pMem)
             {
-                // перехватим CFile::Write()
                 pVTable = Marshal.ReadIntPtr(pMem, 0);
             }
 
@@ -389,6 +444,12 @@ namespace Moxel
             {
                 IntPtr pMem = Marshal.AllocHGlobal(0x10);
                 return new CFile(_CFile(pMem, IntPtr.Zero), bufferLength);
+            }
+
+            public static CFile FromStream(Stream stream)
+            {
+                IntPtr pMem = Marshal.AllocHGlobal(0x10);
+                return new CFile(_CFile(pMem, IntPtr.Zero), stream);
             }
 
             public static CFile FromFileStream(FileStream stream)
@@ -399,18 +460,40 @@ namespace Moxel
 
             ~CFile()
             {
-                unpatch();
-                Array.Resize(ref buffer, 0);
-                buffer = null;
-                _CFileDestructor(this);
-                Marshal.FreeHGlobal(pObject);
-                GC.Collect();
-                GC.Collect();
+                Dispose(false);
             }
 
+            protected virtual void Dispose(bool disposing)
+            {
+                if (!disposedValue)
+                {
+                    if (disposing)
+                    {
+                        unpatch();
+                        buffer = null;
+                    }
+
+                    try
+                    {
+                        _CFileDestructor(this);
+                    }
+                    finally
+                    {
+                        Marshal.FreeHGlobal(pObject);
+                        disposedValue = true;
+                    }
+                }
+            }
+
+            public void Dispose()
+            {
+                // Не изменяйте этот код. Разместите код очистки в методе "Dispose(bool disposing)".
+                Dispose(true);
+                GC.SuppressFinalize(this);
+            }
         }
 
-        public class CArchive
+        public class CArchive: IDisposable
         {
             [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
             public delegate void CArchive_Flush(IntPtr _this);
@@ -436,6 +519,9 @@ namespace Moxel
             }
 
             public IntPtr pObject;
+            private bool disposedValue;
+
+            [Flags]
             enum Mode : uint { store = 0, load = 1, bNoFlushOnDelete = 2, bNoByteSwap = 4 };
 
 
@@ -452,7 +538,6 @@ namespace Moxel
             {
                 flush(this);
                 pfile.unpatch();
-
             }
 
             public static implicit operator IntPtr(CArchive obj)
@@ -462,14 +547,35 @@ namespace Moxel
 
             ~CArchive()
             {
-                try
+                Dispose(false);
+            }
+
+            protected virtual void Dispose(bool disposing)
+            {
+                if (!disposedValue)
                 {
-                    _CArchiveDestructor(this);
+                    if (disposing)
+                    {
+                        // TODO: освободить управляемое состояние (управляемые объекты)
+                    }
+
+                    try
+                    {
+                        _CArchiveDestructor(this);
+                    }
+                    catch
+                    {
+                    }
+                    Marshal.FreeHGlobal(this);
+                    disposedValue = true;
                 }
-                catch
-                {
-                }
-                Marshal.FreeHGlobal(this);
+            }
+
+            public void Dispose()
+            {
+                // Не изменяйте этот код. Разместите код очистки в методе "Dispose(bool disposing)".
+                Dispose(disposing: true);
+                GC.SuppressFinalize(this);
             }
         }
     }
