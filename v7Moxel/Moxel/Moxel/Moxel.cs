@@ -3,6 +3,7 @@ using System.Runtime.InteropServices;
 using System.IO;
 using System;
 using v7Moxel.Moxel.ExcelWriter;
+using System.Threading.Tasks;
 
 namespace Moxel
 {
@@ -206,7 +207,7 @@ namespace Moxel
 
         public Moxel(Stream stream)
         {
-            Load(stream);
+            Load(stream).Wait();
         }
 
         public void Load(string FileName) 
@@ -221,7 +222,7 @@ namespace Moxel
             {
                 using (var fs = new FileStream(FileName, FileMode.Open, FileAccess.Read, FileShare.Read, 1024 * 1024 * 100))
                 {
-                    Load(fs);
+                    Load(fs).Wait();
                 }
             }
         }
@@ -230,22 +231,26 @@ namespace Moxel
         {
             using (var ms = new MemoryStream(buf))
             {
-                Load(ms);
+                Load(ms).Wait();
             }
         }
 
-        public void Load(Stream ms)
+        public async Task Load(Stream ms)
         {
             using (var br = new BinaryReader(ms))
             {
-                Load(br);
+                await Load(br);
             }
         }
 
-        public void Load(BinaryReader br)
+        public async Task Load(BinaryReader br)
         {
             stringTable = new Dictionary<int, string>();
-            br.BaseStream.Seek(0xb, SeekOrigin.Begin);
+            if(!br.BaseStream.CanSeek)
+                for (int i = 0; i < 0xb; i++)
+                    br.BaseStream.ReadByte();
+            else
+                br.BaseStream.Seek(0xb, SeekOrigin.Begin);
             Version = br.ReadInt16();
 
             nAllColumnCount = br.ReadInt32();
@@ -256,7 +261,7 @@ namespace Moxel
             DefFormat = br.Read<DataCell>(this);
             FontList = br.ReadDictionary<LOGFONT>();
 
-            int[] strnums = br.ReadIntArray();
+            int[] strnums =  await Task.Factory.StartNew(()=> br.ReadIntArray()).ConfigureAwait(false);
             int stlCount = br.ReadCount();
             foreach (int num in strnums)
                 stringTable.Add(num, br.ReadCString());
@@ -264,9 +269,9 @@ namespace Moxel
             Header = br.Read<DataCell>(this);
             Footer = br.Read<DataCell>(this);
 
-            Columns = br.ReadDictionary<DataCell>(this);
-            Rows = br.ReadDictionary<MoxelRow>(this);
-            Objects = br.ReadList<EmbeddedObject>(this);
+            Columns = await Task.Factory.StartNew(() => br.ReadDictionary<DataCell>(this)).ConfigureAwait(false);
+            Rows = await Task.Factory.StartNew(() => br.ReadDictionary<MoxelRow>(this)).ConfigureAwait(false);
+            Objects = await Task.Factory.StartNew(() => br.ReadList<EmbeddedObject>(this)).ConfigureAwait(false);
             Unions = br.ReadList<CellsUnion>();
             VerticalSections = br.ReadList<Section>();
             HorisontalSections = br.ReadList<Section>();

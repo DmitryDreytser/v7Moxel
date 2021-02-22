@@ -123,7 +123,7 @@ namespace Moxel
                 }
                 else
                 {
-                    Converter.mxl = ReadFromCSheetDoc(SheetDoc);
+                    Converter.mxl = ReadFromCSheetDoc(SheetDoc).Result;
                     ExcelWriter.PageSettings = SheetDoc.PageSettings;
                 }
             }

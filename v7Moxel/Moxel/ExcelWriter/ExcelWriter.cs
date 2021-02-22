@@ -244,6 +244,7 @@ namespace v7Moxel.Moxel.ExcelWriter
         }
 
         private const double Defcolumnwidth = 40.0d;
+        private const int V = 0;
         private static readonly AutoResetEvent FinishEvent = new AutoResetEvent(false);
         
 
@@ -383,7 +384,7 @@ namespace v7Moxel.Moxel.ExcelWriter
                                           {
                                               var tText = commas switch
                                               {
-                                                  > 0 when dots == 1 => text.Replace(",", "").Replace('.', separator),
+                                                  > V when dots == 1 => text.Replace(",", "").Replace('.', separator),
                                                   1 => text.Replace(",", "").Replace(',', separator),
                                                   _ => null
                                               };

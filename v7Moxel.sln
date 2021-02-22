@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio 14
-VisualStudioVersion = 14.0.25420.1
+# Visual Studio Version 16
+VisualStudioVersion = 16.0.30717.126
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "v7Moxel", "v7Moxel\v7Moxel.csproj", "{C896056B-D75B-49E0-9D56-871B75F5DE51}"
 EndProject
@@ -61,20 +61,5 @@ Global
 	EndGlobalSection
 	GlobalSection(ExtensibilityGlobals) = postSolution
 		SolutionGuid = {6D09093E-7254-47D3-B31C-27C45E648AEB}
-	EndGlobalSection
-	GlobalSection(TeamFoundationVersionControl) = preSolution
-		SccNumberOfProjects = 4
-		SccEnterpriseProvider = {4CA58AB2-18FA-4F8D-95D4-32DDF27D184C}
-		SccTeamFoundationServer = http://tfs.siemens.ru:8080/tfs/accounting
-		SccLocalPath0 = .
-		SccProjectUniqueName1 = MoxelConverter\\MoxelConverter.csproj
-		SccProjectName1 = MoxelConverter
-		SccLocalPath1 = MoxelConverter
-		SccProjectUniqueName2 = v7Moxel\\v7Moxel.csproj
-		SccProjectName2 = v7Moxel
-		SccLocalPath2 = v7Moxel
-		SccProjectUniqueName3 = TaskRunnner\\TaskRunnner.csproj
-		SccProjectName3 = TaskRunnner
-		SccLocalPath3 = TaskRunnner
 	EndGlobalSection
 EndGlobal

@@ -2,6 +2,7 @@
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Moxel
@@ -28,33 +29,35 @@ namespace Moxel
             }
         }
 
-        public static Moxel ReadFromCSheetDoc(CSheetDoc SheetDoc)
+        public async static Task<Moxel> ReadFromCSheetDoc(CSheetDoc SheetDoc)
         {
-            using (var ms = new MemoryStream())
+            //var pcStream = new Nito.ProducerConsumerStream.ProducerConsumerStream();
+
+            using (var ms = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite))
             {
                 using (CFile f = CFile.FromStream(ms))
+            {
+                try
                 {
-                    try
+                    using (CArchive Arch = new CArchive(f, SheetDoc))
                     {
-                        using (CArchive Arch = new CArchive(f, SheetDoc))
-                        {
-                            SheetDoc.Serialize(Arch);
-                            Moxel result = new Moxel(f.GetStream());
-                            return result;
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new Exception(ex.Message, ex);
+                        await Task.Factory.StartNew(() => SheetDoc.Serialize(Arch), TaskCreationOptions.LongRunning);
+                        Arch.Flush();
+                        return await Task.Factory.StartNew(() => new Moxel(ms), TaskCreationOptions.LongRunning);
                     }
                 }
+                catch (Exception ex)
+                {
+                    throw new Exception(ex.Message, ex);
+                }
+            }
             }
         }
 
         public static Moxel ReadFromMemory(IntPtr pSheetDoc)
         {
             CSheetDoc SheetDoc = new CSheetDoc(pSheetDoc);
-            return ReadFromCSheetDoc(SheetDoc);
+            return ReadFromCSheetDoc(SheetDoc).Result;
         }
 
 

@@ -152,7 +152,7 @@ namespace Moxel
                 {
                     if (TableObject != null)
                         if (TableObject.SheetDoc.Length < 1024 * 1024 * 2 || !SaveWrapper.CanSaveExternal)
-                            mxl = ReadFromCSheetDoc(TableObject.SheetDoc);
+                            mxl = ReadFromCSheetDoc(TableObject.SheetDoc).Result;
                         else
                         {
                             string tmpFileName = Path.GetTempFileName();
