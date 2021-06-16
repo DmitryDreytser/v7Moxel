@@ -62,13 +62,48 @@ namespace Moxel
         public delegate void dAfxThrowOleDispatchException(int a1, [MarshalAs(UnmanagedType.LPStr)]string ErrorMessage, int Flag);
         public static dAfxThrowOleDispatchException AfxThrowOleDispatchException = MFCNative.GetDelegate<dAfxThrowOleDispatchException>(1268);
 
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
-        public delegate IntPtr dGetExecutedModule();
-        dGetExecutedModule GetExecutedModule = WinApi.GetDelegate<dGetExecutedModule>("blang.dll", "?GetExecutedModule@CBLModule@@SAPAV1@XZ");
-
         [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
         public delegate void dCBLModule__Reset(IntPtr _this);
         dCBLModule__Reset OnRuntimeError = WinApi.GetDelegate<dCBLModule__Reset>("blang.dll", "?OnRuntimeError@CBLModule@@UAEHXZ");
+
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Auto, ThrowOnUnmappableChar = true)]
+        private delegate void dRaiseExtRuntimeError(IntPtr ErrorMessage, MessageMarker Flag);
+        private static dRaiseExtRuntimeError RaiseExtRuntimeErrorNative = WinApi.GetDelegate<dRaiseExtRuntimeError>("blang.dll", "?RaiseExtRuntimeError@CBLModule@@SAXPBDH@Z");
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        private delegate IntPtr dGetExecutedModule();
+        
+        private static dGetExecutedModule GetBkendUi = WinApi.GetDelegate<dGetExecutedModule>("bkend.dll", "?GetBkEndUI@@YAPAVCBkEndUI@@XZ");
+
+        [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Auto, ThrowOnUnmappableChar = true)]
+        private delegate void dDoMessageLine(IntPtr _this, IntPtr ErrorMessage, MessageMarker Flag);
+        
+        public enum MessageMarker
+        {
+            None = 0,
+            BlueTriangle,
+            Exclamation,
+            Exclamation2,
+            Exclamation3,
+            Information,
+            BlackErr,
+            RedErr,
+            MetaData,
+            UnderlinedErr
+        };
+
+        public static void RaiseExtRuntimeError(string ErrorMessage)
+        {
+                var bkendUi = GetBkendUi();
+
+                var vfTable = Marshal.ReadIntPtr(bkendUi);
+
+                var DoMessageLine = Marshal.GetDelegateForFunctionPointer<dDoMessageLine>(Marshal.ReadIntPtr(vfTable + 0xC));
+
+                DoMessageLine.Invoke(bkendUi, Marshal.StringToCoTaskMemAnsi(ErrorMessage), MessageMarker.RedErr);
+            
+        }
 
         public static Moxel mxl;
         public static PageSettings PageSettings = null;
@@ -152,7 +187,7 @@ namespace Moxel
                 {
                     if (TableObject != null)
                         if (TableObject.SheetDoc.Length < 1024 * 1024 * 2 || !SaveWrapper.CanSaveExternal)
-                            mxl = ReadFromCSheetDoc(TableObject.SheetDoc).Result;
+                            mxl = ReadFromCSheetDoc(TableObject.SheetDoc);
                         else
                         {
                             string tmpFileName = Path.GetTempFileName();

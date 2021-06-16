@@ -29,7 +29,7 @@ namespace Moxel
             }
         }
 
-        public async static Task<Moxel> ReadFromCSheetDoc(CSheetDoc SheetDoc)
+        public static Moxel ReadFromCSheetDoc(CSheetDoc SheetDoc)
         {
             //var pcStream = new Nito.ProducerConsumerStream.ProducerConsumerStream();
 
@@ -41,9 +41,11 @@ namespace Moxel
                 {
                     using (CArchive Arch = new CArchive(f, SheetDoc))
                     {
-                        await Task.Factory.StartNew(() => SheetDoc.Serialize(Arch), TaskCreationOptions.LongRunning);
+                        SheetDoc.Serialize(Arch);
+                        //await Task.Factory.StartNew(() => SheetDoc.Serialize(Arch), TaskCreationOptions.LongRunning);
                         Arch.Flush();
-                        return await Task.Factory.StartNew(() => new Moxel(ms), TaskCreationOptions.LongRunning);
+                        return new Moxel(ms);
+                        //return await Task.Factory.StartNew(() => new Moxel(ms), TaskCreationOptions.LongRunning);
                     }
                 }
                 catch (Exception ex)
@@ -57,7 +59,7 @@ namespace Moxel
         public static Moxel ReadFromMemory(IntPtr pSheetDoc)
         {
             CSheetDoc SheetDoc = new CSheetDoc(pSheetDoc);
-            return ReadFromCSheetDoc(SheetDoc).Result;
+            return ReadFromCSheetDoc(SheetDoc);
         }
 
 

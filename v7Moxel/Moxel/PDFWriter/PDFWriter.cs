@@ -22,7 +22,7 @@ namespace Moxel
         public static bool landscape = false;
         public static PaperKind paperKind = PaperKind.A4;
 
-        public static async Task<bool> Save(Moxel moxel, string filename, ObjectConfig options = null)
+        public static async Task<bool> Save(Moxel moxel, string filename, ObjectConfig options = null, int PaperWidth = 0, int PaperHeight = 0)
         {
             using (var ms = new MemoryStream())
             {
@@ -40,9 +40,18 @@ namespace Moxel
                         (int)((int)Converter.PageSettings.Get(PageSettings.OptionType.Bottom) / 25.4 * 100)
                         );
 
-                    gc.SetMargins(margins).
-                        SetPaperSize((PaperKind)Converter.PageSettings.Get(PageSettings.OptionType.Paper)).
-                        SetPaperOrientation((int)Converter.PageSettings.Get(PageSettings.OptionType.Orient) == 2);
+                    gc.SetMargins(margins);
+
+                    if(PaperHeight != 0 && PaperHeight != 0)
+                    {
+                        gc.SetPaperSize(PaperWidth, PaperHeight);
+                    }
+                    else
+                    {
+                        gc.SetPaperSize((PaperKind)Converter.PageSettings.Get(PageSettings.OptionType.Paper));
+                    }
+                    
+                    gc.SetPaperOrientation((int)Converter.PageSettings.Get(PageSettings.OptionType.Orient) == 2);
 
                     options = new ObjectConfig();
 
@@ -73,7 +82,17 @@ namespace Moxel
                         else
                             landscape = false;
 
-                        gc.SetMargins(margins).SetPaperSize(paperKind).SetPaperOrientation(landscape);
+                        gc.SetMargins(margins);
+                        if (PaperHeight != 0 && PaperHeight != 0)
+                        {
+                            gc.SetPaperSize(PaperWidth, PaperHeight);
+                        }
+                        else
+                        {
+                            gc.SetPaperSize(paperKind);
+                        }
+
+                        gc.SetPaperOrientation(landscape);
 
                         options = new ObjectConfig();
                         options.SetIntelligentShrinking(false);
@@ -106,7 +125,7 @@ namespace Moxel
         static int lastProgress = 0;
         private static void Pechkin_ProgressChanged(SimplePechkin converter, int progress, string progressDescription)
         {
-            //Application.RaiseIdle(EventArgs.Empty);
+            Application.RaiseIdle(EventArgs.Empty);
             onProgress?.Invoke(progress);
             lastProgress = progress;
         }

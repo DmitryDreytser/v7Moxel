@@ -90,7 +90,7 @@ namespace Moxel
             OleObjectStorage = br.ReadBytes(dwObjectSize);
             //File.WriteAllBytes($"F:\\OleObject{Picture.dwZOrder}.bin", OleObjectStorage);
 
-            OLE32.CoInitializeEx(IntPtr.Zero, OLE32.CoInit.ApartmentThreaded); //COINIT_APARTMENTTHREADED
+            //OLE32.CoInitializeEx(IntPtr.Zero, OLE32.CoInit.ApartmentThreaded); //COINIT_APARTMENTTHREADED
             OLE32.ILockBytes LockBytes;
             OLE32.IStorage RootStorage;
 
@@ -164,7 +164,7 @@ namespace Moxel
                 Marshal.ReleaseComObject(LockBytes);
                 Marshal.FreeHGlobal(hGlobal);
 
-                OLE32.CoUninitialize();
+                //OLE32.CoUninitialize();
                 return new CachedImage(m);
             }
         }
@@ -172,7 +172,14 @@ namespace Moxel
         public sealed class CachedImage: IDisposable
         {
             private string filename = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid()}.jpg");
-            
+            private int width, heigth;
+
+            public CachedImage(int width, int heigth)
+            {
+                this.width = width;
+                this.heigth = heigth;
+            }
+
             public CachedImage(Bitmap source, bool leaveOpen = false)
             {
                 source.Save(filename, System.Drawing.Imaging.ImageFormat.Png);
@@ -182,7 +189,9 @@ namespace Moxel
 
             public static implicit operator Bitmap(CachedImage src)
             {
-                return new Bitmap(src.filename);
+                if(File.Exists(src.filename))
+                    return new Bitmap(src.filename);
+                return new Bitmap(src.width, src.heigth);
             }
 
             public void Dispose()
@@ -199,20 +208,24 @@ namespace Moxel
             ushort z = br.ReadUInt16();
 
             int PictureSize = br.ReadInt32();
-            using (var memoryStream = new MemoryStream(br.ReadBytes(PictureSize)))
-            {
-                using (Bitmap Pic = new Bitmap(memoryStream))
+
+            if (PictureSize > 0)
+                using (var memoryStream = new MemoryStream(br.ReadBytes(PictureSize)))
                 {
-                    bool MakeTransparent = false;
+                    using (Bitmap Pic = new Bitmap(memoryStream))
+                    {
+                        bool MakeTransparent = false;
 
-                    if (!FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
-                        MakeTransparent = true;
+                        if (!FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
+                            MakeTransparent = true;
 
-                    if (MakeTransparent)
-                        Pic.MakeTransparent(Color.White);
-                    return new CachedImage(Pic);
+                        if (MakeTransparent)
+                            Pic.MakeTransparent(Color.White);
+                        return new CachedImage(Pic);
+                    }
                 }
-            }
+            else
+                return new CachedImage(1, 1);
         }
     }
 

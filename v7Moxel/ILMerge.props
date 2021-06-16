@@ -41,7 +41,7 @@
     <ILMergeCopyAttributes></ILMergeCopyAttributes>
     
     <!-- Creates a .pdb file for the output assembly and merges into it any .pdb files found for input assemblies, default=true -->
-    <ILMergeDebugInfo></ILMergeDebugInfo>
+    <ILMergeDebugInfo>False</ILMergeDebugInfo>
 
     <!-- Target assembly will be delay signed -->
     <ILMergeDelaySign></ILMergeDelaySign>
@@ -53,7 +53,7 @@
     <ILMergeInternalizeExcludeFile></ILMergeInternalizeExcludeFile>
 
     <!-- XML documentation files are merged to produce an XML documentation file for the target assembly -->
-    <ILMergeXmlDocumentation></ILMergeXmlDocumentation>
+    <ILMergeXmlDocumentation>False</ILMergeXmlDocumentation>
 
     <!-- External assembly references in the manifest of the target assembly will use full public keys (false) or public key tokens (true, default value) -->
     <ILMergePublicKeyTokens></ILMergePublicKeyTokens>

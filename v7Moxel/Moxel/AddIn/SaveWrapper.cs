@@ -16,9 +16,7 @@ namespace Moxel
 {
     public static class SaveWrapper
     {
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
-        public delegate void dRaiseExtRuntimeError([MarshalAs(UnmanagedType.LPStr)]string ErrorMessage, int Flag);
-        public static dRaiseExtRuntimeError RaiseExtRuntimeError = WinApi.GetDelegate<dRaiseExtRuntimeError>("blang.dll", "?RaiseExtRuntimeError@CBLModule@@SAXPBDH@Z");
+
 
         [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
         public delegate int dSaveAs(IntPtr SheetDoc, string FileName, int format);
@@ -119,11 +117,11 @@ namespace Moxel
                         return 1;
                     }
                     else
-                        RaiseExtRuntimeError?.Invoke($"Ошибка сохранения таблицы в XLSX.: ошибка внешнего конвертера", 0);
+                        Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в XLSX.: ошибка внешнего конвертера");
                 }
                 else
                 {
-                    Converter.mxl = ReadFromCSheetDoc(SheetDoc).Result;
+                    Converter.mxl = ReadFromCSheetDoc(SheetDoc);
                     ExcelWriter.PageSettings = SheetDoc.PageSettings;
                 }
             }
@@ -153,7 +151,7 @@ namespace Moxel
                 }
                 catch (Exception ex)
                 {
-                    RaiseExtRuntimeError?.Invoke($"Ошибка сохранения таблицы в XLSX: {ex}", 0);
+                    Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в XLSX: {ex}");
                 }
                 finally
                 {
@@ -163,7 +161,7 @@ namespace Moxel
             }
             else
             {
-                RaiseExtRuntimeError?.Invoke("Ошибка сохранения таблицы в XLSX. Не удалось прочитать таблицу", 0);
+                Converter.RaiseExtRuntimeError("Ошибка сохранения таблицы в XLSX. Не удалось прочитать таблицу");
             }
             return 0;
         }
@@ -178,7 +176,7 @@ namespace Moxel
             }
             catch (Exception ex)
             {
-                RaiseExtRuntimeError?.Invoke($"Ошибка сохранения таблицы в HTML :{ex.Message}", 0);
+                Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в HTML :{ex.Message}");
                 return 0;
             }
 
@@ -188,7 +186,7 @@ namespace Moxel
                 return 1;
             }
             else
-                RaiseExtRuntimeError?.Invoke("Ошибка сохранения таблицы в HTML. Не удалось прочитать таблицу", 0);
+                Converter.RaiseExtRuntimeError("Ошибка сохранения таблицы в HTML. Не удалось прочитать таблицу");
 
             return 0;
         }
@@ -203,7 +201,7 @@ namespace Moxel
             }
             catch (Exception ex)
             {
-                RaiseExtRuntimeError?.Invoke("Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу", 0);
+                Converter.RaiseExtRuntimeError("Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу");
      
                 return 0;
             }
@@ -217,12 +215,12 @@ namespace Moxel
                 }
                 catch(Exception ex)
                 {
-                    RaiseExtRuntimeError?.Invoke($"Ошибка сохранения таблицы в PDF :{ex.Message}", 0);
+                    Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF :{ex.Message}");
                     return 0;
                 }
             }
             else
-                RaiseExtRuntimeError?.Invoke("Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу", 0);
+                Converter.RaiseExtRuntimeError("Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу");
 
             return 0;
         }

@@ -269,6 +269,8 @@ namespace Moxel
 
                 ErrorDescription = e.Message;
                 ErrorStackTrace = e.StackTrace;
+
+                Converter.RaiseExtRuntimeError(e.Message);
                 pParams = null;
                 return HRESULT.E_FAIL;
             }

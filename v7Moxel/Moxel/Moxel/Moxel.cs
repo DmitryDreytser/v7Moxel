@@ -285,7 +285,7 @@ namespace Moxel
 
         }
 
-        public bool SaveAs(string filename, SaveFormat format)
+        public bool SaveAs(string filename, SaveFormat format, int PaperWidth = 0, int PaperHeight = 0)
         {
             switch(format)
             {
@@ -294,7 +294,7 @@ namespace Moxel
                 case SaveFormat.Html:
                     return HtmlWriter.Save(this, filename);
                 case SaveFormat.PDF:
-                    return PDFWriter.Save(this, filename).Result;
+                    return PDFWriter.Save(this, filename, null, PaperWidth, PaperHeight).Result;
                 default:
                     throw new Exception("Формат сохранения не поддерживается.");
             }
