@@ -503,17 +503,21 @@ namespace v7Moxel.Moxel.ExcelWriter
 
                           worksheet.Row(rowNumber + 1).Height = MoxelHeightToExcel(rowHeight);
 
-                          progress = (count * 100 / moxel.nAllRowCount);
-                          if (progress - progressor > 3)
-                          {
-                              progressor = progress;
-                              OnProgress?.Invoke(progressor);
-                          }
+
 
                           System.Threading.Interlocked.Increment(ref count);
 
                           if (count == moxel.nAllRowCount)
                               FinishEvent.Set();
+                          else
+                          {
+                              progress = (count * 100 / moxel.nAllRowCount);
+                              if (progress - progressor > 3)
+                              {
+                                  progressor = progress;
+                                  OnProgress?.Invoke(progressor);
+                              }
+                          }
                       });
 
                     FinishEvent.WaitOne();

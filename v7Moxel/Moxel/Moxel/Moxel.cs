@@ -183,7 +183,8 @@ namespace Moxel
         public int GetHeight(int y1, int y2)
         {
             int height = 0;
-            for (int i = y1; i < y2; i++)
+
+            for (int i = y1; i < y2 ; i++)
                 height += GetRowHeight(i);
 
             return height;

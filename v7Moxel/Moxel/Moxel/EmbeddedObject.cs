@@ -18,13 +18,14 @@ namespace Moxel
             {
                 int left = 0, top = 0, right = 0, bottom = 0;
 
-                left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 3d, 0);
-                right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 3d, 0);
+                    left = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnStart) * 0.875 + Picture.dwOffsetLeft / 3d, 0);
+                    right = (int)Math.Round(Parent.GetWidth(0, Picture.dwColumnEnd) * 0.875 + Picture.dwOffsetRight / 3d, 0);
 
-                top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3d  + Picture.dwOffsetTop / 3d, 0);
-                bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3d  + Picture.dwOffsetBottom / 3d, 0);
+                    top = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowStart) / 3 + Picture.dwOffsetTop / 3d, 0); 
+                    bottom = (int)Math.Round(Parent.GetHeight(0, Picture.dwRowEnd) / 3d  + Picture.dwOffsetBottom / 3d, 0); 
 
-                return new Rectangle { X = Math.Min(left, right), Y = Math.Min(top, bottom), Width = Math.Abs(right - left), Height = Math.Abs(bottom - top) };
+                    return new Rectangle { X = Math.Min(left, right), Y = Math.Min(top, bottom), Width = Math.Abs(right - left), Height = Math.Abs(bottom - top) };
+                
             }
         }
 
@@ -189,9 +190,13 @@ namespace Moxel
 
             public static implicit operator Bitmap(CachedImage src)
             {
-                if(File.Exists(src.filename))
-                    return new Bitmap(src.filename);
-                return new Bitmap(src.width, src.heigth);
+                if (src != null)
+                {
+                    if (File.Exists(src.filename))
+                        return new Bitmap(src.filename);
+                    return new Bitmap(src.width, src.heigth);
+                }
+                return new Bitmap(1, 1);
             }
 
             public void Dispose()

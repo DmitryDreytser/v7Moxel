@@ -251,8 +251,11 @@ namespace Moxel
             return File.Exists(filename);
         }
 
+        
         public static void RenderToHtml(Moxel moxel, Stream stream)
         {
+            Dictionary<int, long> _rowHeights = new();
+
             using (var result = new StreamWriter(stream, Encoding.UTF8, 1024 * 1024 * 10, true))
             {
 
@@ -420,11 +423,21 @@ namespace Moxel
                     if (Row != null && Row.FormatCell.dwFlags.HasFlag(MoxelCellFlags.RowHeight))
                     {
                         RowStyle.Set("height", $"{Row.FormatCell.wHeight / 3}px");
+                        
                     }
                     result.WriteLine($"\t\t\t<tr{RowStyle} id=\"R{rownumber:00}\">\r\n{RowString}\r\n\t\t\t</tr>");
 
                     if (Row != null)
+                    {
                         Row.Height = Math.Max(45, Row.Height);
+                        _rowHeights[rownumber] = Row.Height;
+                    }
+                    else
+                    {
+                        _rowHeights[rownumber] = 45;
+                    }
+
+                        
                 }
 
                 result.WriteLine($"\t\t\t</tbody>");
@@ -438,10 +451,12 @@ namespace Moxel
 
                     FormatCell = obj;
 
-                    int BorderWith = (int)FormatCell.bPictureBorderWidth * 2 + 1;
+                    int BorderWith =  (int)FormatCell.bPictureBorderWidth;
 
+                    var top = (_rowHeights.Values.Take(obj.Picture.dwRowStart).Sum() / 3) + (obj.Picture.dwOffsetTop / 3);
 
-                    PictureStyle.Add("top", $"{DrawingArea.Top - BorderWith}px");
+                    PictureStyle.Add("top", $"{top - BorderWith}px");
+
                     PictureStyle.Add("left", $"{DrawingArea.Left - BorderWith}px");
 
                     PictureStyle.Add("width", $"{DrawingArea.Width + BorderWith}px");
