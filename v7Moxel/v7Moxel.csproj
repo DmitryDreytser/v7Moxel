@@ -52,7 +52,6 @@
     <LangVersion>9.0</LangVersion>
     <FileAlignment>512</FileAlignment>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
-	
   </PropertyGroup>
   <PropertyGroup>
     <StartupObject />
@@ -172,6 +171,7 @@
     <Compile Include="Moxel\Moxel\Section.cs" />
     <Compile Include="Moxel\Moxel\_BMP_1c.cs" />
     <Compile Include="Moxel\PDFWriter\PDFWriter.cs" />
+    <Compile Include="Moxel\PDFWriter\PDFWriterManaged.cs" />
     <Compile Include="Properties\AssemblyInfo.cs" />
     <EmbeddedResource Include="Properties\Resources.resx">
       <Generator>ResXFileCodeGenerator</Generator>
@@ -235,6 +235,12 @@
     </Content>
     <Content Include="v7Moxel.res" />
   </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\JetPdf\PDFjet.NF.4.6.csproj">
+      <Project>{26ba9967-c460-4141-bb57-774694d52522}</Project>
+      <Name>PDFjet.NF.4.6</Name>
+    </ProjectReference>
+  </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <PropertyGroup>
     <PostBuildEvent>rem $(ILMergeConsolePath) /out:Moxel.dll v7Moxel.dll FastMember.dll ExcelNumberFormat.dll DocumentFormat.OpenXml.dll</PostBuildEvent>
@@ -248,5 +254,4 @@
     <Error Condition="!Exists('..\packages\MSBuild.ILMerge.Task.1.1.3\build\MSBuild.ILMerge.Task.targets')" Text="$([System.String]::Format('$(ErrorText)', '..\packages\MSBuild.ILMerge.Task.1.1.3\build\MSBuild.ILMerge.Task.targets'))" />
   </Target>
   <Import Project="..\packages\MSBuild.ILMerge.Task.1.1.3\build\MSBuild.ILMerge.Task.targets" Condition="Exists('..\packages\MSBuild.ILMerge.Task.1.1.3\build\MSBuild.ILMerge.Task.targets') And '$(Configuration)' == 'Release'" />
-  
 </Project>

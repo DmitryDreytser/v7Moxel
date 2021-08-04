@@ -227,17 +227,20 @@ namespace Moxel
                         errorLog = null;
                     }
 
-                    if (asyncEvent != null)
-                    {
-                        //while (Marshal.ReleaseComObject(asyncEvent) > 0) { };
-                        Marshal.FinalReleaseComObject(asyncEvent);
-                        asyncEvent = null;
-                    }
+
                     if (connect1c != null)
                     {
                         //while (Marshal.ReleaseComObject(connect1c) > 0) { };
                         Marshal.FinalReleaseComObject(connect1c);
                         connect1c = null;
+                    }                    
+                    
+                    if (asyncEvent != null)
+                    {
+                        while (Marshal.ReleaseComObject(asyncEvent) > 0) 
+                        { };
+                        Marshal.FinalReleaseComObject(asyncEvent);
+                        asyncEvent = null;
                     }
                 }
                 catch { }

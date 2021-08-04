@@ -13,7 +13,7 @@ namespace Moxel
         Excel = 1,
         Html,
         PDF,
-        //XML
+        XML
     }
 
     public delegate void ConverterProgressor(int progress);
@@ -295,7 +295,7 @@ namespace Moxel
                 case SaveFormat.Html:
                     return HtmlWriter.Save(this, filename);
                 case SaveFormat.PDF:
-                    return PDFWriter.Save(this, filename, null, PaperWidth, PaperHeight).Result;
+                    return PDFWriterManaged.Save(this, filename, PaperWidth, PaperHeight);
                 default:
                     throw new Exception("Формат сохранения не поддерживается.");
             }
