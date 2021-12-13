@@ -472,14 +472,13 @@ namespace Moxel
             {
                 if (!disposedValue)
                 {
-                    if (disposing)
-                    {
-                        unpatch();
-                        buffer = null;
-                    }
-
                     try
                     {
+                        if (disposing)
+                        {
+                            unpatch();
+                            buffer = null;
+                        }
                         _CFileDestructor(this);
                     }
                     finally
