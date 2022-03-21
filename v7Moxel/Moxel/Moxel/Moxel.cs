@@ -278,7 +278,7 @@ namespace Moxel
             HorisontalSections = br.ReadList<Section>();
             VerticalPageBreaks = br.ReadIntArray();
             HorisontalPageBreaks = br.ReadIntArray();
-            AreaNames = br.ReadList<MoxelArea>();
+            AreaNames = br.ReadList<MoxelArea>( intSize: true);
         }
 
          ~Moxel()

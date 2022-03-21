@@ -294,9 +294,18 @@ namespace v7Moxel.Moxel.ExcelWriter
                     }
 
                     foreach (var union in moxel.Unions)
-                        worksheet.Cells[union.dwTop + 1, union.dwLeft + 1, union.dwBottom + 1, union.dwRight + 1]
-                            .Merge = true;
+                    {
+                        try
+                        {
+                            worksheet.Cells[union.dwTop + 1, union.dwLeft + 1, union.dwBottom + 1, union.dwRight + 1]
+                                .Merge = true;
+                        }
+                        catch
+                        {
 
+                        }
+
+                    }
                     var count = 0;
                     var progressor = 0;
 

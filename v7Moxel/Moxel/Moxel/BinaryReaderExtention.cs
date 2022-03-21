@@ -71,7 +71,7 @@ namespace Moxel
         /// <param name="parent">Родительский объект</param>
         /// <param name="ignore">типизатор для синтаксис-контроля. Нужен чтобы этото метод использоватлся для чтения класса</param>
         /// <returns></returns>
-        public static T Read<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class
+        public static T Read<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class, new()
         {
             if(parent == null)
                 return (T)Activator.CreateInstance(typeof(T), br);
@@ -107,7 +107,7 @@ namespace Moxel
         /// <param name="parent">Родительский объект</param>
         /// <param name="ignore">типизатор для синтаксис-контроля. Нужен чтобы этото метод использоватлся для чтения класса</param>
         /// <returns></returns>
-        public static Dictionary<int, T> ReadDictionary<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class
+        public static Dictionary<int, T> ReadDictionary<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class, new()
         {
             Dictionary<int, T> result = new Dictionary<int, T>();
             int[] numbers = br.ReadIntArray();
@@ -154,10 +154,14 @@ namespace Moxel
         /// <param name="parent"></param>
         /// <param name="ignore"></param>
         /// <returns></returns>
-        public static List<T> ReadList<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null) where T : class
+        public static List<T> ReadList<T>(this BinaryReader br, object parent = null, RequireClass<T> ignore = null, bool intSize = false) where T : class, new()
         {
             List<T> result = new List<T>();
             int length = br.ReadCount();
+
+            if (length <= ushort.MaxValue && intSize)
+                br.ReadUInt16();
+
             for (int num = 0; num < length; num++)
             {
                 if (parent == null)
