@@ -255,6 +255,11 @@ namespace Moxel
             return File.Exists(filename);
         }
 
+        static int MulDiv(int number, int numerator, int denominator)
+        {
+            return (int)(((long)number * numerator + (denominator >> 1)) / denominator);
+        }
+
         public static void RenderToHtml(Moxel moxel, Stream stream)
         {
             using (var result = new StreamWriter(stream, Encoding.UTF8, 1024 * 1024 * 10, true))

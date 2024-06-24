@@ -36,10 +36,11 @@ namespace Moxel
 
         public static bool CanSaveExternal => File.Exists(utilPath) && false;
 
-        public static async Task<int> SaveExternal(string MoxelName, string FileName)
+        public static Task<int> SaveExternal(string MoxelName, string FileName)
         {
             try
             {
+                
                 using (Process ExCon = new Process())
                 {
                     ExCon.StartInfo = new ProcessStartInfo { FileName = utilPath, Arguments = $"\"{MoxelName}\" \"{FileName}\" {ExcelWriter.MaxDegreeOfParallelism}", CreateNoWindow = true, RedirectStandardOutput = true, UseShellExecute = false };
@@ -55,14 +56,14 @@ namespace Moxel
                     }
 
                     if (ExCon.ExitCode == 1 && File.Exists(FileName))
-                        return ExCon.ExitCode;
+                        return Task.FromResult(ExCon.ExitCode);
                     else
-                        return 0;
+                        return Task.FromResult(0);
                 }
             }
             catch(Exception e)
             {
-                return -1;
+                return Task.FromResult(-1);
             }
         }
 
@@ -215,7 +216,16 @@ namespace Moxel
                 }
                 catch(Exception ex)
                 {
-                    Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF :{ex.Message}");
+
+                    string GetInnerException(Exception e)
+                    {
+                        if (e.InnerException != null)
+                            return GetInnerException(e.InnerException);
+                        else
+                            return e.Message;
+                    }
+
+                    Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF :{GetInnerException(ex)}");
                     return 0;
                 }
             }
