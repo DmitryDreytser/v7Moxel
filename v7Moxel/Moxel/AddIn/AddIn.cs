@@ -308,16 +308,16 @@ namespace Moxel
                         Marshal.FinalReleaseComObject(asyncEvent);
                         asyncEvent = null;
                     }
-                    if (connect1c != null)
+                    //if (connect1c != null)
                     {
                         //while (Marshal.ReleaseComObject(connect1c) > 0) { };
-                        Marshal.FinalReleaseComObject(connect1c);
+                        //Marshal.FinalReleaseComObject(connect1c);
                         connect1c = null;
                     }
                 }
                 catch(Exception ex) 
                 {
-                    Debug.Fail(ex.ToString());
+                    Debug.WriteLine(ex.ToString());
                 }
             }
 
