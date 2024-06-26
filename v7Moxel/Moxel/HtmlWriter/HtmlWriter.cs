@@ -90,12 +90,16 @@ namespace Moxel
 
                 if (Format.dwFlags.HasFlag(MoxelCellFlags.AlignH))
                 {
-                    if (Format.bHorAlign.HasFlag( TextHorzAlign.BySelection) && Format.bHorAlign.HasFlag(TextHorzAlign.Center))
+                    if (Format.bHorAlign.HasFlag(TextHorzAlign.BySelection) && Format.bHorAlign.HasFlag(TextHorzAlign.Center))
                     {
                         CellStyle.Set("text-align", "center");
                     }
                     else
+                    {
                         CellStyle.Set("text-align", Format.bHorAlign.ToString());
+                        if (Format.bHorAlign == TextHorzAlign.Right)
+                            CellStyle.Set("padding-right", "3px");
+                    }
                 }
                 if (FormatCell.TextOrientation != 0)
                     CellStyle.Set("transform", $"rotate(-{FormatCell.TextOrientation}deg)");

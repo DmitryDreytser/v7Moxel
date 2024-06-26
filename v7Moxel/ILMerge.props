@@ -11,7 +11,7 @@
     <ILMergeTransitive>true</ILMergeTransitive>
 
     <!-- Extra ILMerge library paths (semicolon-separated). Dont put your package dependencies here, they will be added automagically -->
-    <ILMergeLibraryPath></ILMergeLibraryPath>
+    <ILMergeLibraryPath>$(MSBuildBinPath)</ILMergeLibraryPath>
 
     <!-- The solution NuGet package directory if not standard 'SOLUTION\packages' -->
     <ILMergePackagesPath></ILMergePackagesPath>
