@@ -2,6 +2,7 @@
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Reflection;
@@ -49,50 +50,14 @@ namespace Moxel
     }
 
 
-    [ComVisible(true)]
+    [ComVisible(true)]    
     [Guid("2DF0622D-BC0A-4C30-8B7D-ACB66FB837B6")]
     [ClassInterface(ClassInterfaceType.AutoDual)]
     [ComDefaultInterface(typeof(IConverter))]
     [Description("Конвертер MOXEL")]
-    [ProgId("AddIn.Moxel.Converter")]
+    [ProgId( "AddIn.Moxel.Converter")]
     public class Converter : AddIn, IConverter
     {
-
-        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
-        public delegate void dAfxThrowOleDispatchException(int a1, [MarshalAs(UnmanagedType.LPStr)]string ErrorMessage, int Flag);
-        public static dAfxThrowOleDispatchException AfxThrowOleDispatchException = MFCNative.GetDelegate<dAfxThrowOleDispatchException>(1268);
-
-        [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
-        public delegate void dCBLModule__Reset(IntPtr _this);
-        dCBLModule__Reset OnRuntimeError = WinApi.GetDelegate<dCBLModule__Reset>("blang.dll", "?OnRuntimeError@CBLModule@@UAEHXZ");
-
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Auto, ThrowOnUnmappableChar = true)]
-        private delegate void dRaiseExtRuntimeError(IntPtr ErrorMessage, MessageMarker Flag);
-        private static dRaiseExtRuntimeError RaiseExtRuntimeErrorNative = WinApi.GetDelegate<dRaiseExtRuntimeError>("blang.dll", "?RaiseExtRuntimeError@CBLModule@@SAXPBDH@Z");
-
-        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
-        private delegate IntPtr dGetExecutedModule();
-        
-        private static dGetExecutedModule GetBkendUi = WinApi.GetDelegate<dGetExecutedModule>("bkend.dll", "?GetBkEndUI@@YAPAVCBkEndUI@@XZ");
-
-        [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Auto, ThrowOnUnmappableChar = true)]
-        private delegate void dDoMessageLine(IntPtr _this, IntPtr ErrorMessage, MessageMarker Flag);
-        
-        public enum MessageMarker
-        {
-            None = 0,
-            BlueTriangle,
-            Exclamation,
-            Exclamation2,
-            Exclamation3,
-            Information,
-            BlackErr,
-            RedErr,
-            MetaData,
-            UnderlinedErr
-        };
-
         public static void RaiseExtRuntimeError(string ErrorMessage)
         {
                 var bkendUi = GetBkendUi();
@@ -109,6 +74,16 @@ namespace Moxel
         public static PageSettings PageSettings = null;
         public static CTableOutputContext TableObject = null;
         static int ObjectCount = 0;
+
+        static Converter()
+        {
+            SaveWrapper.Wrap(true);
+        }
+
+        public Converter()
+        {
+            
+        }
 
         public int IsWrapped { get => SaveWrapper.isWraped ? 1 : 0; }
         public int MaxDegreeOfParallelism { get => ExcelWriter.MaxDegreeOfParallelism ; set
@@ -239,13 +214,12 @@ namespace Moxel
 
         protected override void OnInit()
         {
-            
+            ObjectCount++;
         }
 
         protected override HRESULT OnRegister()
         {
-            ObjectCount++;
-            WrapSaveAs(1);
+            //ObjectCount++;
             return HRESULT.S_OK;
         }
 

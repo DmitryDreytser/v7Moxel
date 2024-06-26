@@ -63,6 +63,7 @@ namespace Moxel
             }
             catch(Exception e)
             {
+                Debug.Fail($"Error: {e}");
                 return Task.FromResult(-1);
             }
         }
@@ -128,6 +129,7 @@ namespace Moxel
             }
             catch (Exception ex)
             {
+                Debug.Fail($"Error: {ex}");
                 //RaiseExtRuntimeError?.Invoke($"Ошибка сохранения таблицы в XLSX.:{ex.Message}", 0);
                 return 0;
             }
@@ -202,8 +204,7 @@ namespace Moxel
             }
             catch (Exception ex)
             {
-                Converter.RaiseExtRuntimeError("Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу");
-     
+                Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу: {ex}");     
                 return 0;
             }
 

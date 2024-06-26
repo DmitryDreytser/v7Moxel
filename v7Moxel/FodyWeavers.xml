@@ -1,0 +1,11 @@
+﻿<Weavers xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:noNamespaceSchemaLocation="FodyWeavers.xsd">
+  <Costura IncludeDebugSymbols="false">
+    <Unmanaged32Assemblies>
+      libeay32.dll
+      libgcc_s_dw2-1.dll
+      mingwm10.dll
+      ssleay32.dll
+      wkhtmltox0.dll
+    </Unmanaged32Assemblies>
+  </Costura>
+</Weavers>

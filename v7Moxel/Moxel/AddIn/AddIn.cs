@@ -6,6 +6,7 @@ using System.Collections;
 using System.Threading.Tasks;
 using System.Windows.Forms;
 using v7Moxel.Moxel.ExcelWriter;
+using System.Diagnostics;
 
 namespace Moxel
 {
@@ -17,7 +18,6 @@ namespace Moxel
             RussianName = alias;
         }
     }
-
     public abstract class AddIn : IInitDone, ILanguageExtender
     {
         /// <summary>ProgID COM-объекта компоненты</summary>
@@ -93,7 +93,43 @@ namespace Moxel
         /// 
         /// </summary>
         public static dGetMainFrame GetMainFrame = WinApi.GetDelegate<dGetMainFrame>("frame.dll", "?GetMainFrame@@YAPAVCMDIFrameWnd@@XZ");
-       
+
+        public enum MessageMarker
+        {
+            None = 0,
+            BlueTriangle,
+            Exclamation,
+            Exclamation2,
+            Exclamation3,
+            Information,
+            BlackErr,
+            RedErr,
+            MetaData,
+            UnderlinedErr
+        };
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        protected delegate IntPtr dGetExecutedModule();
+
+        protected static dGetExecutedModule GetBkendUi = WinApi.GetDelegate<dGetExecutedModule>("bkend.dll", "?GetBkEndUI@@YAPAVCBkEndUI@@XZ");
+        protected static dGetExecutedModule GetExecutedModule = WinApi.GetDelegate<dGetExecutedModule>("blang.dll", "?GetExecutedModule@CBLModule@@SAPAV1@XZ");
+
+        [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Auto, ThrowOnUnmappableChar = true)]
+        protected delegate void dDoMessageLine(IntPtr _this, IntPtr ErrorMessage, MessageMarker Flag);
+
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        protected delegate void dAfxThrowOleDispatchException(int a1, [MarshalAs(UnmanagedType.LPStr)] string ErrorMessage, int Flag);
+        protected static dAfxThrowOleDispatchException AfxThrowOleDispatchException = MFCNative.GetDelegate<dAfxThrowOleDispatchException>(1268);
+
+        [UnmanagedFunctionPointer(CallingConvention.Cdecl, CharSet = CharSet.Auto, ThrowOnUnmappableChar = true)]
+        protected delegate void dRaiseExtRuntimeError([MarshalAs(UnmanagedType.LPStr)] string ErrorMessage, MessageMarker Flag);
+        protected static dRaiseExtRuntimeError RaiseExtRuntimeErrorNative = WinApi.GetDelegate<dRaiseExtRuntimeError>("blang.dll", "?RaiseExtRuntimeError@CBLModule@@SAXPBDH@Z");
+
+
+        [UnmanagedFunctionPointer(CallingConvention.ThisCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        protected delegate void dCBLModule__Reset(IntPtr _this);
+        protected dCBLModule__Reset OnRuntimeError = WinApi.GetDelegate<dCBLModule__Reset>("blang.dll", "?OnRuntimeError@CBLModule@@UAEHXZ");
+
         /// <summary>
         /// AfxGetMainWnd
         /// </summary>
@@ -169,11 +205,23 @@ namespace Moxel
         }
 
         #region IInitDone
+
+        static Exception getInternalEx(Exception ex)
+        {
+            if (ex.InnerException != null)
+                return getInternalEx(ex.InnerException);
+            return ex;
+        }
+
         HRESULT IInitDone.Init([MarshalAs(UnmanagedType.IDispatch)] dynamic connection)
         {
+            Exception ex = null;
             try
             {
                 connect1c = connection;
+                if (errorLog == null)
+                    errorLog = (IErrorLog)connection;
+
                 if (statusLine == null)
                 {
                     statusLine = (IStatusLine)connection;
@@ -184,26 +232,53 @@ namespace Moxel
 
                 asyncEvent = (IAsyncEvent)connection;
 
-                if(errorLog == null)
-                    errorLog = (IErrorLog)connection;
+
 
                 OnInit();
                 refCount++;
                 return HRESULT.S_OK;
             }
-            catch
+            catch(Exception e)
             {
+                try
+                {
+                    RaiseExtRuntimeErrorNative(getInternalEx(e).Message, MessageMarker.None);
+                }
+                catch 
+                {
+                }
+
                 return HRESULT.E_FAIL;
             }
+            finally
+            {
+                if (ex != null && errorLog != null)
+                {
+  
+                    ex = getInternalEx(ex);
+
+                    System.Runtime.InteropServices.ComTypes.EXCEPINFO ei = new System.Runtime.InteropServices.ComTypes.EXCEPINFO()
+                    {
+                        bstrDescription = ex.Message,
+                        bstrSource = ex.StackTrace,
+                        scode = ex.HResult,
+                        bstrHelpFile = ex.HelpLink,
+                    };
+
+
+                    errorLog.AddError(this.AddInName, ref ei);
+                    ex = null;
+                }
+            }
+
+
 
         }
-
         HRESULT IInitDone.GetInfo([MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] info)
         {
             info[0] = 2000;
             return HRESULT.S_OK;
         }
-
         HRESULT IInitDone.Done()
         {
 
@@ -240,7 +315,10 @@ namespace Moxel
                         connect1c = null;
                     }
                 }
-                catch { }
+                catch(Exception ex) 
+                {
+                    Debug.Fail(ex.ToString());
+                }
             }
 
             GC.Collect();
@@ -276,7 +354,6 @@ namespace Moxel
             }
             
         }
-
         HRESULT ILanguageExtender.CallAsProc(int methodNum, [MarshalAs(UnmanagedType.SafeArray, SafeArraySubType = VarEnum.VT_VARIANT)] ref object[] pParams)
         {
             try
@@ -291,8 +368,6 @@ namespace Moxel
             }
             return HRESULT.S_OK;
         }
-
-
         HRESULT ILanguageExtender.FindMethod([MarshalAs(UnmanagedType.BStr)] string methodName, ref int methodNUm)
         {
             if (nameToNumber.ContainsKey(methodName.ToUpper()))
@@ -304,7 +379,6 @@ namespace Moxel
             methodNUm = -1;
             return HRESULT.S_FALSE;
         }
-
         HRESULT ILanguageExtender.FindProp([MarshalAs(UnmanagedType.BStr)] string propName, ref Int32 propNum)
         {
             if (propertyNameToNumber.ContainsKey(propName.ToUpper()))
@@ -316,9 +390,6 @@ namespace Moxel
             propNum = -1;
             return HRESULT.S_FALSE;
         }
-
-
-
         HRESULT ILanguageExtender.GetMethodName(int methodNum, int methodAlias, [MarshalAs(UnmanagedType.BStr)] ref string methodName)
         {
             if (numberToName.ContainsKey(methodNum))
@@ -329,13 +400,11 @@ namespace Moxel
             return HRESULT.S_FALSE;
 
         }
-
         HRESULT ILanguageExtender.GetNMethods(ref Int32 pMethods)
         {
             pMethods = allMethodInfo.Length;
             return HRESULT.S_OK;
         }
-
         HRESULT ILanguageExtender.GetNParams(int methodNum, ref int pParams)
         {
             if (numberToParams.ContainsKey(methodNum))
@@ -347,19 +416,16 @@ namespace Moxel
             pParams = -1;
             return HRESULT.S_FALSE;
         }
-
-        public HRESULT GetNProps(ref int props)
+        HRESULT ILanguageExtender.GetNProps(ref int props)
         {
             props = (Int32)propertyNameToNumber.Count;
             return HRESULT.S_OK;
         }
-
-        public HRESULT GetParamDefValue(int methodNum, int paramNum, [MarshalAs(UnmanagedType.Struct)] ref object paramDefValue)
+        HRESULT ILanguageExtender.GetParamDefValue(int methodNum, int paramNum, [MarshalAs(UnmanagedType.Struct)] ref object paramDefValue)
         {
             return HRESULT.S_OK;
         }
-
-        public HRESULT GetPropName(int propNum, int propAlias, [MarshalAs(UnmanagedType.BStr)] ref string propName)
+        HRESULT ILanguageExtender.GetPropName(int propNum, int propAlias, [MarshalAs(UnmanagedType.BStr)] ref string propName)
         {
             if (propertyNumberToName.ContainsKey(propNum))
             {
@@ -368,13 +434,11 @@ namespace Moxel
             }
             return HRESULT.S_FALSE;
         }
-
-        public HRESULT GetPropVal(int propNum, [MarshalAs(UnmanagedType.Struct)] ref object propVal)
+        HRESULT ILanguageExtender.GetPropVal(int propNum, [MarshalAs(UnmanagedType.Struct)] ref object propVal)
         {
             propVal = allPropertyInfo[propNum].GetValue(this, null);
             return HRESULT.S_OK;
         }
-
         HRESULT ILanguageExtender.HasRetVal(int methodNum, ref bool retValue)
         {
             if (numberToRetVal.ContainsKey(methodNum))
@@ -385,20 +449,16 @@ namespace Moxel
 
             return HRESULT.S_FALSE;
         }
-
-
         HRESULT ILanguageExtender.IsPropReadable(int propNum, ref bool propRead)
         {
             propRead = allPropertyInfo[(int)propertyNumberToPropertyInfoIdx[propNum]].CanRead;
             return HRESULT.S_OK;
         }
-
-        public HRESULT IsPropWritable(int propNum, ref bool propWrite)
+        HRESULT ILanguageExtender.IsPropWritable(int propNum, ref bool propWrite)
         {
             propWrite = allPropertyInfo[(int)propertyNumberToPropertyInfoIdx[propNum]].CanWrite;
             return HRESULT.S_OK;
         }
-
         HRESULT ILanguageExtender.RegisterExtensionAs([In, Out, MarshalAs(UnmanagedType.BStr)] ref string extensionName)
         {
             try
@@ -523,14 +583,15 @@ namespace Moxel
             }
             catch (Exception e)
             {
+                Debug.Print($"Error: {e}");
                 return HRESULT.S_FALSE;
             }
 
             return OnRegister();
             
         }
-
-        public HRESULT SetPropVal(int propNum, [MarshalAs(UnmanagedType.Struct)] ref object propVal)
+        [ComVisible(true)]
+        HRESULT ILanguageExtender.SetPropVal(int propNum, [MarshalAs(UnmanagedType.Struct)] ref object propVal)
         {
             allPropertyInfo[(int)propertyNumberToPropertyInfoIdx[propNum]].SetValue(this, propVal, null);
             return HRESULT.S_OK;

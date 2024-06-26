@@ -34,10 +34,10 @@ namespace Moxel
                     gc = new GlobalConfig();
 
                     margins = new Margins(
-                        (int)((int)Converter.PageSettings.Get(PageSettings.OptionType.Left) / 25.4 * 100),
-                        (int)((int)Converter.PageSettings.Get(PageSettings.OptionType.Right) / 25.4 * 100),
-                        (int)((int)Converter.PageSettings.Get(PageSettings.OptionType.Top) / 25.4 * 100),
-                        (int)((int)Converter.PageSettings.Get(PageSettings.OptionType.Bottom) / 25.4 * 100)
+                        (int)(Converter.PageSettings.Get<int>(PageSettings.OptionType.Left) * 120 / 25.4),
+                        (int)(Converter.PageSettings.Get<int>(PageSettings.OptionType.Right) * 120 / 25.4),
+                        (int)(Converter.PageSettings.Get<int>(PageSettings.OptionType.Top) * 120 / 25.4),
+                        (int)(Converter.PageSettings.Get<int>(PageSettings.OptionType.Bottom) * 120 / 25.4)
                         );
 
                     gc.SetMargins(margins);

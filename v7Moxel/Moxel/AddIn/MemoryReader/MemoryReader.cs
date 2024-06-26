@@ -95,6 +95,7 @@ namespace Moxel
                         }
                         catch (Exception ex)
                         {
+                            Debug.Fail($"Error: {ex}");
                             return false;
                         }
                     }

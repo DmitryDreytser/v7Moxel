@@ -118,6 +118,11 @@ namespace Moxel
         public CProfileEntry7[] PropertyList { get { return m_Entrys.Entrys; } }
         public IntPtr[] PropertyValues { get { return m_PropArray.Entrys; } }
 
+
+        public T Get<T>(OptionType opt)
+        {
+            return (T)Get(opt);
+        }
         public object Get(OptionType opt)
         {
             int index = (int)opt;

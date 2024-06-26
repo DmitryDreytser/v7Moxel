@@ -220,6 +220,8 @@ namespace Moxel
                 }
                 catch(Exception ex)
                 {
+                    System.Diagnostics.Debug.Fail($"Error: {ex}");
+
                     System.Diagnostics.Debugger.Break();
                 }
 

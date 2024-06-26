@@ -370,7 +370,8 @@ namespace v7Moxel.Moxel.ExcelWriter
                           double rowHeight = 0;
 
                           var autoHeight = false;
-                          lock (worksheet.Row(rowNumber + 1))
+                            var workSheetRow = worksheet.Row(rowNumber + 1);
+                          lock (workSheetRow)
                           {
 
                               if (row != null)
@@ -533,8 +534,8 @@ namespace v7Moxel.Moxel.ExcelWriter
                               else
                                   rowHeight = 45;
 
-                          worksheet.Row(rowNumber + 1).Height = MoxelHeightToExcel(rowHeight);
-
+                              workSheetRow.Height = MoxelHeightToExcel(rowHeight);
+                          }
 
 
                           System.Threading.Interlocked.Increment(ref count);
