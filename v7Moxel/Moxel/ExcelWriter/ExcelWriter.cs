@@ -415,14 +415,22 @@ namespace v7Moxel.Moxel.ExcelWriter
 
                                               if (dots > 0 || commas > 0)
                                               {
-                                                  var tText = commas switch
-                                                  {
-                                                      > V when dots == 1 => text.Replace(",", "").Replace('.', separator),
-                                                      1 => text.Replace(",", "").Replace(',', separator),
-                                                      _ => null
-                                                  };
+                                                  var tText = string.Empty;
 
-                                                  if (tText != null && double.TryParse(tText, out var val))
+                                                  switch (dots)
+                                                  {
+                                                      case 1 when commas == 1:
+                                                          tText = text.Replace(",", "").Replace('.', separator);
+                                                          break;
+                                                      case 0 when commas == 1:
+                                                          tText = text.Replace(',', separator);
+                                                          break;
+                                                      case 1 when commas == 0:
+                                                          tText = text.Replace('.', separator);
+                                                          break;
+                                                  }
+
+                                                  if (!string.IsNullOrEmpty(tText) && double.TryParse(tText, out var val))
                                                   {
                                                       cell.Value = val;
                                                       cell.Style.Numberformat.Format = "#,##0.00";
