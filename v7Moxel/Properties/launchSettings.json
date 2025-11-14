@@ -1,0 +1,14 @@
+{
+  "profiles": {
+    "v7Moxel": {
+      "commandName": "Project",
+      "remoteDebugEnabled": false
+    },
+    "1C": {
+      "commandName": "Executable",
+      "executablePath": "E:\\ырфкув\\Portable_1c_relize_27\\1cv7s.exe",
+      "commandLineArgs": "/m",
+      "workingDirectory": "E:\\ырфкув\\Portable_1c_relize_27\\"
+    }
+  }
+}

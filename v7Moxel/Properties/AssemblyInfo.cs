@@ -7,11 +7,11 @@ using System.Runtime.InteropServices;
 // набора атрибутов. Измените значения этих атрибутов, чтобы изменить сведения,
 // связанные со сборкой.
 [assembly: AssemblyTitle("v7Moxel")]
-[assembly: AssemblyDescription("")]
+[assembly: AssemblyDescription("Внешняя компонентf 1C 7.7 для конвертации mxl в Excel-2007, HTML, PDF")]
 [assembly: AssemblyConfiguration("")]
-[assembly: AssemblyCompany("MadDAD")]
+[assembly: AssemblyCompany("Дмитрий Дрейцер")]
 [assembly: AssemblyProduct("v7Moxel")]
-[assembly: AssemblyCopyright("Copyright © MadDAD 2024")]
+[assembly: AssemblyCopyright("Copyright © Дмитрий Дрейцер 2025")]
 [assembly: AssemblyTrademark("")]
 [assembly: AssemblyCulture("")]
 
