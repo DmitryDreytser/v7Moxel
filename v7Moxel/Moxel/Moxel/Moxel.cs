@@ -262,7 +262,7 @@ namespace Moxel
             DefFormat = br.Read<DataCell>(this);
             FontList = br.ReadDictionary<LOGFONT>();
 
-            int[] strnums =  await Task.Factory.StartNew(()=> br.ReadIntArray()).ConfigureAwait(false);
+            int[] strnums = br.ReadIntArray();
             int stlCount = br.ReadCount();
             foreach (int num in strnums)
                 stringTable.Add(num, br.ReadCString());
@@ -270,9 +270,9 @@ namespace Moxel
             Header = br.Read<DataCell>(this);
             Footer = br.Read<DataCell>(this);
 
-            Columns = await Task.Factory.StartNew(() => br.ReadDictionary<DataCell>(this)).ConfigureAwait(false);
-            Rows = await Task.Factory.StartNew(() => br.ReadDictionary<MoxelRow>(this)).ConfigureAwait(false);
-            Objects = await Task.Factory.StartNew(() => br.ReadList<EmbeddedObject>(this)).ConfigureAwait(false);
+            Columns = br.ReadDictionary<DataCell>(this);
+            Rows = br.ReadDictionary<MoxelRow>(this);
+            Objects = br.ReadList<EmbeddedObject>(this);
             Unions = br.ReadList<CellsUnion>();
             VerticalSections = br.ReadList<Section>();
             HorisontalSections = br.ReadList<Section>();
