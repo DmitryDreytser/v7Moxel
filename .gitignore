@@ -241,3 +241,4 @@ ModelManifest.xml
 
 # FAKE - F# Make
 .fake/
+/v7Moxel/Properties/launchSettings.json
