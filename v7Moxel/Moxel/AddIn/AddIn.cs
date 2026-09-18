@@ -28,7 +28,10 @@ namespace Moxel
                 return this.GetType().GetCustomAttribute<ProgIdAttribute>().Value.Replace("AddIn.", "");
             }
         }
-        
+        static AddIn()
+        {
+            Debug.WriteLine("LOAD");
+        }
 
         /// <summary>Указатель на IDispatch</summary>
         static protected dynamic connect1c;

@@ -17,8 +17,8 @@ namespace Moxel
 
 
     [ComVisible(false)]
-    //[InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    //[Guid("1EAE378F-C315-4B49-980C-A9A40792E78C")]
+    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
+    [Guid("1EAE378F-C315-4B49-980C-A9A40792E78C")]
     internal interface IConverter
     {
         [Alias("Присоединить")]
