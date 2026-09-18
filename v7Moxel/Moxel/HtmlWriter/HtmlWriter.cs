@@ -1,10 +1,11 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Collections.Immutable;
+using System.Drawing;
+using System.IO;
 using System.Linq;
 using System.Text;
-using System.Drawing;
 using static Moxel.Moxel;
-using System.IO;
 //using DocumentFormat.OpenXml.Office2010.Excel;
 
 namespace Moxel
@@ -255,21 +256,200 @@ namespace Moxel
             return File.Exists(filename);
         }
 
-        
+
+        private static Bitmap DrawText(string text, Size size, Font font)
+        {
+            Bitmap buffer = new Bitmap(size.Width, size.Height, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
+
+            using (Graphics graphics = Graphics.FromImage(buffer))
+            {
+                // Produces the result below
+                graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
+                // Produces clean text, but I'd really like ClearType!
+                //graphics.TextRenderingHint = System.Drawing.Text.TextRenderingHint.AntiAliasGridFit;
+                System.Windows.Forms.TextRenderer.DrawText(graphics, text, font, new Point { X = 0, Y = 0 }, Color.Black, Color.White, System.Windows.Forms.TextFormatFlags.Left | System.Windows.Forms.TextFormatFlags.TextBoxControl | System.Windows.Forms.TextFormatFlags.WordBreak);
+            }
+            return buffer;
+
+        }
+
+        public static void RenderImage(StreamWriter result, EmbeddedObject obj, Dictionary<int, long> _rowHeights, bool inUnion)
+        {
+            CSSstyle PictureStyle = new CSSstyle();
+
+
+            Rectangle DrawingArea = obj.AbsoluteImageArea;
+
+            CSheetFormat FormatCell = obj;
+
+            int BorderWith = (int)FormatCell.bPictureBorderWidth;
+
+            //var top = Math.Ceiling((_rowHeights.Values.Take(obj.Picture.dwRowStart).Sum() + obj.Picture.dwOffsetTop) / 4f);
+            //PictureStyle.Add("top", $"{(top - BorderWith).ToString(System.Globalization.CultureInfo.InvariantCulture)}pt");
+            //PictureStyle.Add("left", $"{(DrawingArea.Left).ToString(System.Globalization.CultureInfo.InvariantCulture)}px");
+            //PictureStyle.Add("width", $"{(DrawingArea.Width).ToString(System.Globalization.CultureInfo.InvariantCulture)}px");
+            //PictureStyle.Add("height", $"{(DrawingArea.Height).ToString(System.Globalization.CultureInfo.InvariantCulture)}px");
+
+            PictureStyle.Add("margin-top", $"{(obj.Picture.dwOffsetTop * 0.25).ToString(System.Globalization.CultureInfo.InvariantCulture)}pt");
+            PictureStyle.Add("margin-left", $"{(obj.Picture.dwOffsetLeft * 0.25).ToString(System.Globalization.CultureInfo.InvariantCulture)}pt");
+            PictureStyle.Add("width", $"{(DrawingArea.Width).ToString(System.Globalization.CultureInfo.InvariantCulture)}px");
+            PictureStyle.Add("height", $"{(DrawingArea.Height).ToString(System.Globalization.CultureInfo.InvariantCulture)}px");
+
+            string Text = string.Empty;
+
+            bool DrawRectangle = obj.Picture.dwType == ObjectType.Rectangle;
+
+            if (obj.Picture.dwType != ObjectType.Line)
+            {
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight) || FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
+                {
+                    if ((FormatCell.bPictureBorderPresence != ObjectBorderPresence.All) && FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
+                    {
+                        if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Left))
+                            PictureStyle.Set("border-left", PictureBorderStyle(FormatCell));
+
+                        if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Right))
+                            PictureStyle.Set("border-right", PictureBorderStyle(FormatCell));
+
+                        if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Top))
+                            PictureStyle.Set("border-top", PictureBorderStyle(FormatCell));
+
+                        if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Bottom))
+                            PictureStyle.Set("border-bottom", PictureBorderStyle(FormatCell));
+                    }
+                    else
+                        if (FormatCell.bPictureBorderStyle <= ObjectBorderStyle.Solid && !FormatCell.dwFlags.HasFlag(MoxelCellFlags.PatternType))
+                    {
+                        PictureStyle.Set("border", PictureBorderStyle(FormatCell));
+                    }
+                    else
+                        DrawRectangle = true;
+                }
+                else
+                {
+                    if (!FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderTop))
+                        PictureStyle.Set("border", "solid 1px");
+                    else
+                        PictureStyle.Set("border", $"solid {(byte)FormatCell.bPictureBorderWidth * 2 + 1}px");
+                }
+
+                if (!DrawRectangle)
+                {
+                    Color borderColor = FormatCell.BorderColor;
+                    PictureStyle.Set("border-color", $"rgb({borderColor.R},{borderColor.G},{borderColor.B})");
+                }
+
+                Color bgColor = FormatCell.BgColor;
+                if (bgColor != Color.Empty)
+                    PictureStyle.Set("background-color", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
+
+            }
+
+            if(inUnion)
+                PictureStyle.Add("position", "absolute");
+            PictureStyle.Add("overflow", "hidden");
+
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV))
+            {
+                PictureStyle.Remove("vertical-align");
+                if (FormatCell.bVertAlign == TextVertAlign.Middle)
+                {
+                    PictureStyle.Add("display", "flex");
+                    PictureStyle.Add("align-items", "center");
+                }
+            }
+
+            if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignH))
+            {
+
+                if (FormatCell.bHorAlign.HasFlag(TextHorzAlign.BySelection) && FormatCell.bHorAlign.HasFlag(TextHorzAlign.Center))
+                {
+                    PictureStyle.Set("text-align", "center");
+                }
+                else
+                    PictureStyle.Set("text-align", FormatCell.bHorAlign.ToString());
+            }
+
+            CSSstyle LineStyle = new CSSstyle();
+            LineStyle.Set("stroke", "#000000");
+            FillLineStyle(FormatCell, ref LineStyle);
+            string SvgBackground = string.Empty;
+
+
+            if (DrawRectangle)
+            {
+                StringBuilder SVGPicture = new StringBuilder();
+                if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.PatternType))
+                    LineStyle.Set("fill", "url(#defpattern)");
+                else
+                    LineStyle.Set("fill", "none");
+
+                SVGPicture.AppendLine($"<svg baseProfile=\"full\" xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" height = \"{DrawingArea.Height + BorderWith}px\"  width = \"{DrawingArea.Width + BorderWith}px\" text-rendering=\"geometricPrecision\">");
+                SVGPicture.AppendLine(GetSVGFilPattern(FormatCell));
+                SVGPicture.AppendLine($"<g transform=\"translate({BorderWith / 2}, {BorderWith / 2})\">");
+                SVGPicture.AppendLine($"<rect {LineStyle} x=\"1\" y=\"1\" width=\"{DrawingArea.Width}\" height=\"{DrawingArea.Height}\"/>");
+                SVGPicture.AppendLine("</g>");
+                SVGPicture.AppendLine("</svg>");
+                PictureStyle.Set("background-image", $"url(data:image/svg+xml;base64,{Convert.ToBase64String(Encoding.ASCII.GetBytes(SVGPicture.ToString()))})");
+            }
+
+            result.Write($"\t\t<span id=\"D{obj.Picture.dwZOrder}\"{PictureStyle}>\r\n");
+            switch (obj.Picture.dwType)
+            {
+                case ObjectType.Ole:
+                case ObjectType.Picture:
+                    using (MemoryStream ms = new MemoryStream())
+                    {
+                        ///Странныый косяк с GDI+. Без такого финта выдает неопознанную ошибку
+                        using (Bitmap bmp = obj.pObject)
+                            bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
+
+                        result.Write($"\t\t\t<img src=\"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}\" width=\"{DrawingArea.Width + BorderWith}\" height=\"{DrawingArea.Height + BorderWith}\">\r\n");
+                    }
+                    break;
+                case ObjectType.Text:
+                    CSSstyle TextStyle = new CSSstyle();
+                    Text = FillTextStyle(obj, ref TextStyle);
+                    TextStyle.Set("max-width", $"{DrawingArea.Width}px");
+                    TextStyle.Set("width", $"{DrawingArea.Width}px");
+                    TextStyle.Set("line-height", "1.57");
+                    result.WriteLine($"<span{TextStyle}>{Text}</span>");
+                    break;
+                case ObjectType.Line:
+                    result.WriteLine($"<svg baseProfile=\"full\" xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" height = \"{Math.Max(DrawingArea.Height, 10)}px\"  width = \"{Math.Max(DrawingArea.Width, 10)}px\" text-rendering=\"geometricPrecision\">");
+                    result.WriteLine("<g transform=\"translate(0.5, 0.5)\">");
+                    Rectangle LineCoords = obj.ImageArea;
+
+                    if (LineCoords.Height * LineCoords.Width >= 0)
+                        result.WriteLine($"<line {LineStyle} x1=\"0\" y1=\"1\" x2=\"{DrawingArea.Width}\" y2=\"{Math.Max(DrawingArea.Height, BorderWith)}\"/>");
+                    else
+                        result.WriteLine($"<line {LineStyle} x1=\"0\" y2=\"1\" x2=\"{DrawingArea.Width}\" y1=\"{Math.Max(DrawingArea.Height, BorderWith)}\"/>");
+                    result.WriteLine("</g>");
+                    result.WriteLine("</svg>");
+                    break;
+                default:
+                    break;
+            }
+            result.Write("\t\t</span>\r\n");
+        }
+
         public static void RenderToHtml(Moxel moxel, Stream stream)
         {
             Dictionary<int, long> _rowHeights = new();
+
+            Dictionary<string, Font> _fontCache = new Dictionary<string, Font>();
 
             using (var result = new StreamWriter(stream, Encoding.UTF8, 1024 * 1024 * 10, true))
             {
 
                 CSheetFormat FormatCell = moxel.DefFormat;
-                string DefFontName = string.Empty;
+                //string defFontName = string.Empty;
+                var defFontName = "Arial";
                 float DefFontSize = 8.0f;
 
 
                 if (moxel.FontList.Count == 1)
-                    DefFontName = $" style=\"font-family:{moxel.FontList.First().Value.lfFaceName}\"";
+                    defFontName = $" style=\"font-family:{moxel.FontList.First().Value.lfFaceName}\"";
 
                 if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.FontSize))
                     DefFontSize = -(float)FormatCell.wFontSize / 4;
@@ -279,14 +459,14 @@ namespace Moxel
 
                 result.WriteLine("<style type=\"text/css\">");
                 result.WriteLine("body { background: #ffffff; margin: 0; font-family: Arial; font-size: 8pt; font-style: normal; }");
-                result.WriteLine("table {table-layout: fixed; padding: 0px; padding-left: 2px; vertical-align:bottom; border-collapse:collapse;width: 100%; font-family: Arial; font-size: 8pt; font-style: normal; }");
-                result.WriteLine("td { padding: 0px 0px 0px 2px;}");
-                result.WriteLine("tr { height: 15px;}");
+                result.WriteLine($"table {{table-layout: fixed; padding: 0px; padding-left: 2px; vertical-align:bottom; border-collapse:collapse;width: 100%; font-family: {defFontName}; font-size: {DefFontSize}pt; font-style: normal;}}");
+                result.WriteLine("td { padding: 0px 0px 0px 1px;}");
+                result.WriteLine("tr { height: 11.25pt;}");
                 result.WriteLine("</style>");
 
                 result.WriteLine("</HEAD>");
-                result.WriteLine($"\t<body{DefFontName}>");
-                result.WriteLine($"\t\t<TABLE style=\"width: {Math.Round(moxel.GetWidth(0, moxel.nAllColumnCount) * 0.875) }px; height: 0px; \" border=0 CELLSPACING=0>");
+                result.WriteLine($"\t<body{defFontName}>");
+                result.WriteLine($"\t\t<TABLE style=\"width: {Math.Round(moxel.GetWidth(0, moxel.nAllColumnCount) * 0.875) }px; height: 0px; \" border=0.1 CELLSPACING=0>");
                 result.WriteLine($"\t\t\t<colgroup>");
 
                 for (int columnnumber = 0; columnnumber < moxel.nAllColumnCount; columnnumber++)
@@ -320,13 +500,22 @@ namespace Moxel
                     CSSstyle RowStyle = new CSSstyle();
                     StringBuilder RowString = new StringBuilder();
 
+                    var rowAutoHeight = true; 
                     if (moxel.Rows.ContainsKey(rownumber))
                     {
                         Row = moxel.Rows[rownumber];
                         FormatCell = Row.FormatCell;
+
+                        rowAutoHeight = 
+                            Row.All(x => !(x.Value.FormatCell.dwFlags.HasFlag(MoxelCellFlags.RowHeight) && x.Value.FormatCell.wHeight > 0)) &&
+                            !(FormatCell.dwFlags.HasFlag(MoxelCellFlags.RowHeight) && FormatCell.wHeight > 0);
                     }
 
+                    
+
                     List<CellsUnion> RowUnion = moxel.Unions.Where(t => (t.dwTop <= rownumber && t.dwBottom >= rownumber)).ToList();
+                    var spannedColumns = RowUnion.Where(x=> x.dwTop != x.dwBottom).SelectMany(x => Enumerable.Range(x.dwLeft, x.dwRight - x.dwLeft + 1)).ToImmutableHashSet();
+                    var notSpannedCells = Enumerable.Range(0, moxel.nAllColumnCount).Where(x => !spannedColumns.Contains(x));
 
                     for (int columnnumber = 0; columnnumber < moxel.nAllColumnCount; columnnumber++)
                     {
@@ -334,7 +523,7 @@ namespace Moxel
                         CSSstyle CellStyle = new CSSstyle();
                         CellsUnion Union = RowUnion.FirstOrDefault(t => (t.dwLeft <= columnnumber && t.dwRight >= columnnumber));
                         var c = columnnumber;
-                        string FontFamily = DefFontName;
+                        string FontFamily = defFontName;
                         float FontSize = DefFontSize;
 
                         if (Row != null)
@@ -352,8 +541,7 @@ namespace Moxel
                             {
                                 if (columnnumber < Row.Count - 1)
                                 {
-
-                                    if (!string.IsNullOrEmpty(NextColumnCelll.Text) || NextColumnCelll.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
+                                    if (!string.IsNullOrEmpty(NextColumnCelll.Text) || (NextColumnCelll.FormatCell.bBorderLeft != BorderStyle.None && NextColumnCelll.FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft) ))
                                     {
                                         CellStyle.Add("Overflow", "Hidden");
                                     }
@@ -384,23 +572,58 @@ namespace Moxel
                                 }
 
                             }
-                            //if (Row.Height == 0)
+
+                            if (rowAutoHeight && notSpannedCells.Contains(columnnumber))
                             {
-                                Size Constr = new Size { Width = (int)Math.Round((moxel.GetWidth(c, c + Union.ColumnSpan) + moxel.GetColumnWidth(c)) * 0.875), Height = 0 };
-                                Size textsize = System.Windows.Forms.TextRenderer.MeasureText(Text.TrimStart(' '), new Font(FontFamily, FontSize, FormatCell.bFontBold == clFontWeight.Bold ? FontStyle.Bold : FontStyle.Regular), Constr, System.Windows.Forms.TextFormatFlags.WordBreak);
-                                textsize.Height /= Union.RowSpan + 1;
+                                var fontStyle = FormatCell.bFontBold == clFontWeight.Bold ? FontStyle.Bold : FontStyle.Regular;
+                                var fontHash = string.Intern($"{FontFamily}_{FontSize}_{fontStyle}");
+                                if(!_fontCache.TryGetValue(fontHash, out var font))
+                                {
+                                    font = new Font(FontFamily, (float)(FontSize * 0.95), fontStyle, GraphicsUnit.Point);
+                                    _fontCache[fontHash] = font;
+                                }
+                                var textForRender = Text.Replace("&nbsp;", " ").Replace("<br>", "\r\n");
 
-                                if (FormatCell.bControlContent == TextControl.Wrap && !Text.Contains("<br>"))
-                                    if (textsize.Width > Constr.Width)
+                                Size Constr = new Size { Width = (int)Math.Round((moxel.GetWidth(c, c + Union.ColumnSpan + 1)) * 0.873), Height = 0 };
+
+                                Size textsize = System.Windows.Forms.TextRenderer.MeasureText(textForRender, font, Constr, System.Windows.Forms.TextFormatFlags.SingleLine | System.Windows.Forms.TextFormatFlags.Left | System.Windows.Forms.TextFormatFlags.TextBoxControl);
+                                //textsize.Height = (int)Math.Ceiling(textsize.Height * 0.75f / (Union.RowSpan + 1) / 0.75)  ;
+                                var strings = textForRender.Split('\r');
+                                var charWidth = (float)textsize.Width / textForRender.Length;
+                                var strCount = strings.Length;
+
+                                if(FormatCell.bControlContent == TextControl.Wrap)
+                                {
+                                    CellStyle.Set("line-height", "1.25");
+                                    foreach (var str in strings.Where(x => x.Length * charWidth > Constr.Width))
                                     {
-                                        int index = (textsize.Width - Constr.Width) / (textsize.Width / Text.Length);
-                                        if (index > 1 && index < Text.Length)
-                                            Text = Text.Insert(Text.Length - index, "<br>");
+                                        var words = str.Split(' ');
+                                        var strLen = 0f;
+                                        foreach(var word in words)
+                                        {
+                                            strLen += (word.Length + 1) * charWidth;
+                                            if(strLen >= Constr.Width)
+                                            {
+                                                strLen = (word.Length + 1) * charWidth;
+                                                strCount++;
+                                            }
+                                        }
                                     }
+                                }
 
-                                Row.Height = Math.Max((short)(Math.Max(textsize.Height, 15) * 3), Row.Height);
+                                if (FormatCell.bControlContent == TextControl.Wrap || strCount > 1)
+                                {
+                                    Constr.Height = (int)Math.Ceiling((float)textsize.Width / Constr.Width) * textsize.Height;
+                                    if(strCount > Constr.Height / textsize.Height)
+                                    {
+                                        Constr.Height = textsize.Height * strCount + 1;
+                                    }
+                                }
+                                else
+                                    Constr.Height = textsize.Height;
+                                Constr.Height = Math.Max(15, Constr.Height);
+                                Row.Height = Math.Max((short)(Constr.Height * 3), Row.Height);
                             }
-
 
                             if (c > 0 && string.IsNullOrEmpty(Row[c - 1].Text)
                                 && FormatCell.bHorAlign == TextHorzAlign.Right
@@ -412,7 +635,23 @@ namespace Moxel
                                 Text = $"<SPAN style=\"white-space: nowrap; direction: ltr; display: inline-block;\">{Text}</SPAN>";
                             }
                         }
-
+                        else
+                        {
+                            var pic = moxel.Objects.FirstOrDefault(x => x.Picture.dwRowStart == rownumber && x.Picture.dwColumnStart == columnnumber);
+                            if(pic != default)
+                            {
+                                using (var ms = new MemoryStream())
+                                {
+                                    using (var sw = new StreamWriter(ms))
+                                    {
+                                        RenderImage(sw, pic, _rowHeights, notSpannedCells.Contains(columnnumber));
+                                    }
+                                    var picDiv = Encoding.UTF8.GetString(ms.ToArray());
+                                    Text = picDiv;
+                                    CellStyle.Set("align-content", "flex-start");
+                                }
+                            }
+                        }
 
 
                         if (!Union.ContainsCell(rownumber, c))
@@ -426,182 +665,40 @@ namespace Moxel
 
                     if (Row != null && Row.FormatCell.dwFlags.HasFlag(MoxelCellFlags.RowHeight))
                     {
-                        RowStyle.Set("height", $"{Row.FormatCell.wHeight / 3}px");
-                        
+                        var height = Math.Round(Row.FormatCell.wHeight * 0.25, 2);
+                        Row.Height = (int)(height / 0.25);
+                        RowStyle.Set("height", $"{height.ToString(System.Globalization.CultureInfo.InvariantCulture)}pt");                        
                     }
+                    else
+                    {
+                        Row.Height = 45;
+                    }
+                    
                     result.WriteLine($"\t\t\t<tr{RowStyle} id=\"R{rownumber:00}\">\r\n{RowString}\r\n\t\t\t</tr>");
 
                     if (Row != null)
                     {
-                        Row.Height = Math.Max(45, Row.Height);
                         _rowHeights[rownumber] = Row.Height;
                     }
                     else
                     {
                         _rowHeights[rownumber] = 45;
                     }
-
-                        
                 }
+
+                foreach(var font in _fontCache)
+                {
+                    font.Value.Dispose();
+                }
+                _fontCache.Clear();
 
                 result.WriteLine($"\t\t\t</tbody>");
                 result.WriteLine("\t\t</table>");
-                foreach (EmbeddedObject obj in moxel.Objects)
-                {
-                    CSSstyle PictureStyle = new CSSstyle();
 
-
-                    Rectangle DrawingArea = obj.AbsoluteImageArea;
-
-                    FormatCell = obj;
-
-                    int BorderWith =  (int)FormatCell.bPictureBorderWidth;
-
-                    var top = (_rowHeights.Values.Take(obj.Picture.dwRowStart).Sum() / 3) + (obj.Picture.dwOffsetTop / 3);
-
-                    PictureStyle.Add("top", $"{top - BorderWith}px");
-
-                    PictureStyle.Add("left", $"{DrawingArea.Left - BorderWith}px");
-
-                    PictureStyle.Add("width", $"{DrawingArea.Width + BorderWith}px");
-                    PictureStyle.Add("height", $"{DrawingArea.Height + BorderWith}px");
-                    string Text = string.Empty;
-
-                    bool DrawRectangle = obj.Picture.dwType == ObjectType.Rectangle;
-
-                    if (obj.Picture.dwType != ObjectType.Line)
-                    {
-                        if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight) || FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderLeft))
-                        {
-                            if ((FormatCell.bPictureBorderPresence != ObjectBorderPresence.All) && FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderRight))
-                            {
-                                if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Left))
-                                    PictureStyle.Set("border-left", PictureBorderStyle(FormatCell));
-
-                                if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Right))
-                                    PictureStyle.Set("border-right", PictureBorderStyle(FormatCell));
-
-                                if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Top))
-                                    PictureStyle.Set("border-top", PictureBorderStyle(FormatCell));
-
-                                if (FormatCell.bPictureBorderPresence.HasFlag(ObjectBorderPresence.Bottom))
-                                    PictureStyle.Set("border-bottom", PictureBorderStyle(FormatCell));
-                            }
-                            else
-                                if (FormatCell.bPictureBorderStyle <= ObjectBorderStyle.Solid && !FormatCell.dwFlags.HasFlag(MoxelCellFlags.PatternType))
-                            {
-                                PictureStyle.Set("border", PictureBorderStyle(FormatCell));
-                            }
-                            else
-                                DrawRectangle = true;
-                        }
-                        else
-                        {
-                            if (!FormatCell.dwFlags.HasFlag(MoxelCellFlags.BorderTop))
-                                PictureStyle.Set("border", "solid 1px");
-                            else
-                                PictureStyle.Set("border", $"solid {(byte)FormatCell.bPictureBorderWidth * 2 + 1}px");
-                        }
-
-                        if (!DrawRectangle)
-                        {
-                            Color borderColor = FormatCell.BorderColor;
-                            PictureStyle.Set("border-color", $"rgb({borderColor.R},{borderColor.G},{borderColor.B})");
-                        }
-
-                        Color bgColor = FormatCell.BgColor;
-                        if (bgColor != Color.Empty)
-                            PictureStyle.Set("background-color", $"rgb({bgColor.R},{bgColor.G},{bgColor.B})");
-
-                    }
-
-
-                    PictureStyle.Add("position", "absolute");
-                    PictureStyle.Add("overflow", "hidden");
-
-                    if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignV))
-                    {
-                        PictureStyle.Remove("vertical-align");
-                        if (FormatCell.bVertAlign == TextVertAlign.Middle)
-                        {
-                            PictureStyle.Add("display", "flex");
-                            PictureStyle.Add("align-items", "center");
-                        }
-                    }
-
-                    if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.AlignH))
-                    {
-
-                        if (FormatCell.bHorAlign.HasFlag(TextHorzAlign.BySelection) && FormatCell.bHorAlign.HasFlag(TextHorzAlign.Center))
-                        {
-                            PictureStyle.Set("text-align", "center");
-                        }
-                        else
-                            PictureStyle.Set("text-align", FormatCell.bHorAlign.ToString());
-                    }
-
-                    CSSstyle LineStyle = new CSSstyle();
-                    LineStyle.Set("stroke", "#000000");
-                    FillLineStyle(FormatCell, ref LineStyle);
-                    string SvgBackground = string.Empty;
-
-
-                    if (DrawRectangle)
-                    {
-                        StringBuilder SVGPicture = new StringBuilder();
-                        if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.PatternType))
-                            LineStyle.Set("fill", "url(#defpattern)");
-                        else
-                            LineStyle.Set("fill", "none");
-
-                        SVGPicture.AppendLine($"<svg baseProfile=\"full\" xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" height = \"{DrawingArea.Height + BorderWith}px\"  width = \"{DrawingArea.Width + BorderWith}px\" text-rendering=\"geometricPrecision\">");
-                        SVGPicture.AppendLine(GetSVGFilPattern(FormatCell));
-                        SVGPicture.AppendLine($"<g transform=\"translate({BorderWith / 2}, {BorderWith / 2 })\">");
-                        SVGPicture.AppendLine($"<rect {LineStyle} x=\"1\" y=\"1\" width=\"{DrawingArea.Width}\" height=\"{DrawingArea.Height}\"/>");
-                        SVGPicture.AppendLine("</g>");
-                        SVGPicture.AppendLine("</svg>");
-                        PictureStyle.Set("background-image", $"url(data:image/svg+xml;base64,{Convert.ToBase64String(Encoding.ASCII.GetBytes(SVGPicture.ToString()))})");
-                    }
-
-                    result.Write($"\t\t<div id=\"D{obj.Picture.dwZOrder}\"{PictureStyle}>\r\n");
-                    switch (obj.Picture.dwType)
-                    {
-                        case ObjectType.Ole:
-                        case ObjectType.Picture:
-                            using (MemoryStream ms = new MemoryStream())
-                            {
-                                ///Странныый косяк с GDI+. Без такого финта выдает неопознанную ошибку
-                                using (Bitmap bmp = obj.pObject)
-                                    bmp.Save(ms, System.Drawing.Imaging.ImageFormat.Png);
-
-                                result.Write($"\t\t\t<img src=\"data:image/png;base64,{Convert.ToBase64String(ms.ToArray())}\" width=\"{DrawingArea.Width + BorderWith}\" height=\"{DrawingArea.Height + BorderWith}\">\r\n");
-                            }
-                            break;
-                        case ObjectType.Text:
-                            CSSstyle TextStyle = new CSSstyle();
-                            Text = FillTextStyle(obj, ref TextStyle);
-                            TextStyle.Set("max-width", $"{DrawingArea.Width}px");
-                            TextStyle.Set("width", $"{DrawingArea.Width}px");
-                            TextStyle.Set("line-height", "1.57");
-                            result.WriteLine($"<span{TextStyle}>{Text}</span>");
-                            break;
-                        case ObjectType.Line:
-                            result.WriteLine($"<svg baseProfile=\"full\" xmlns=\"http://www.w3.org/2000/svg\" version=\"1.1\" xmlns:xlink=\"http://www.w3.org/1999/xlink\" height = \"{Math.Max(DrawingArea.Height, 10)}px\"  width = \"{Math.Max(DrawingArea.Width, 10)}px\" text-rendering=\"geometricPrecision\">");
-                            result.WriteLine("<g transform=\"translate(0.5, 0.5)\">");
-                            Rectangle LineCoords = obj.ImageArea;
-
-                            if (LineCoords.Height * LineCoords.Width >= 0)
-                                result.WriteLine($"<line {LineStyle} x1=\"0\" y1=\"1\" x2=\"{DrawingArea.Width}\" y2=\"{Math.Max(DrawingArea.Height, BorderWith)}\"/>");
-                            else
-                                result.WriteLine($"<line {LineStyle} x1=\"0\" y2=\"1\" x2=\"{DrawingArea.Width}\" y1=\"{Math.Max(DrawingArea.Height, BorderWith)}\"/>");
-                            result.WriteLine("</g>");
-                            result.WriteLine("</svg>");
-                            break;
-                        default:
-                            break;
-                    }
-                    result.Write("\t\t</div>\r\n");
-                }
+                //foreach (EmbeddedObject obj in moxel.Objects)
+                //{
+                //    RenderImage(result, obj, _rowHeights);
+                //}
 
                 result.Write("\t</body>\r\n");
                 result.Write("</html>");
