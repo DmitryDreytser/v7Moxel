@@ -19,7 +19,7 @@
     <FileAlignment>4096</FileAlignment>
     <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
     <GenerateSerializationAssemblies>Auto</GenerateSerializationAssemblies>
-    <LangVersion>9.0</LangVersion>
+    <LangVersion>latest</LangVersion>
     <IsPublishable>False</IsPublishable>
     <Deterministic>False</Deterministic>
   </PropertyGroup>
@@ -63,6 +63,10 @@
     <Reference Include="System.Threading.Tasks" />
   </ItemGroup>
   <ItemGroup>
+    <None Update="Properties\Settings.settings">
+      <Generator>SettingsSingleFileGenerator</Generator>
+      <LastGenOutput>Settings.Designer.cs</LastGenOutput>
+    </None>
     <None Update="Register.cmd">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
@@ -173,6 +177,13 @@
   </ItemGroup>
   <ItemGroup>
     <Compile Remove="Moxel\Moxel\Cell.cs" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Update="Properties\Settings.Designer.cs">
+      <DesignTimeSharedInput>True</DesignTimeSharedInput>
+      <AutoGen>True</AutoGen>
+      <DependentUpon>Settings.settings</DependentUpon>
+    </Compile>
   </ItemGroup>
   <PropertyGroup>
     <PostBuildEvent>rem $(ILMergeConsolePath) /out:Moxel.dll v7Moxel.dll FastMember.dll ExcelNumberFormat.dll DocumentFormat.OpenXml.dll</PostBuildEvent>
