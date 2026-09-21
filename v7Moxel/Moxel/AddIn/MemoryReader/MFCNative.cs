@@ -17,6 +17,9 @@ namespace Moxel
         [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
         public delegate IntPtr _GetBaseClass();
 
+        [UnmanagedFunctionPointer(CallingConvention.StdCall, CharSet = CharSet.Ansi, ThrowOnUnmappableChar = true)]
+        public delegate IntPtr _CCmdTarget(IntPtr pObj);
+
         public static T GetDelegate<T>(string EntryPoint)
         {
             return Marshal.GetDelegateForFunctionPointer<T>(WinApi.GetProcAddress(hMFC, EntryPoint));
