@@ -177,6 +177,8 @@ namespace Moxel
         public bool Vertical;
         public int Start;                   // 0-based
         public int End;
+        /// <summary>m_data @0xC — уровень/состояние секции (в файле Section.Level).</summary>
+        public int Level;
         public string Name = "";
     }
 
@@ -802,6 +804,7 @@ namespace Moxel
                 var s = new SheetSectionInfo { Vertical = vertical };
                 s.Start = Marshal.ReadInt32(e, 4);
                 s.End = Marshal.ReadInt32(e, 8);
+                s.Level = Marshal.ReadInt32(e, 0xC);   // CSheetOutline.m_data
                 s.Name = ReadCString(Marshal.ReadIntPtr(e, 0x10));
                 res.Add(s);
             }

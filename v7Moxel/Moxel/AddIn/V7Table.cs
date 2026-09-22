@@ -312,19 +312,16 @@ namespace Moxel
 
         static bool ResolveGetDocument()
         {
-            foreach (string dll in new[] { "bkend.dll", "blang.dll", "moxel.dll" })
-            {
-                IntPtr h = WinApi.GetModuleHandle(dll);
-                if (h == IntPtr.Zero) continue;
+            IntPtr h = WinApi.GetModuleHandle("frame.dll");
+            if (h == IntPtr.Zero) return false;
 
-                IntPtr p = WinApi.GetProcAddress(h, GETDOCUMENT_ENTRY);
-                if (p != IntPtr.Zero)
-                {
-                    _pGetDocument = p;
-                    _GetDocument = Marshal.GetDelegateForFunctionPointer<_GetDocumentDelegate>(p);
-                    Debug.WriteLine("[V7Table] " + GETDOCUMENT_ENTRY + " → " + dll);
-                    return true;
-                }
+            IntPtr p = WinApi.GetProcAddress(h, GETDOCUMENT_ENTRY);
+            if (p != IntPtr.Zero)
+            {
+                _pGetDocument = p;
+                _GetDocument = Marshal.GetDelegateForFunctionPointer<_GetDocumentDelegate>(p);
+                Debug.WriteLine("[V7Table] " + GETDOCUMENT_ENTRY + " → " + "frame.dll");
+                return true;
             }
             Debug.WriteLine("[V7Table] " + GETDOCUMENT_ENTRY + " не найден");
             return false;

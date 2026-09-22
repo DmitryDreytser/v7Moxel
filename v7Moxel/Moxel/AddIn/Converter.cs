@@ -101,6 +101,8 @@ namespace Moxel
         {
             try
             {
+
+
                 TableObject = CObject.FromComObject<CTableOutputContext>(Table);
                 PageSettings = TableObject.SheetDoc.PageSettings;
 
@@ -124,25 +126,15 @@ namespace Moxel
             mxl?.Dispose();
             try
             {
+                
 
-
-                ReadFromMemory(Table);
-
-                //string tempfile = Path.GetTempFileName();
- 
-                //File.Delete(tempfile);
-                //tempfile += ".mxl";
-                //object[] param = { tempfile, "mxl" };
-                //var tt = Table.GetType().InvokeMember("Write", BindingFlags.InvokeMethod, null, Table, param);
-
-                //if (File.Exists(tempfile))
-                //    mxl = new Moxel(tempfile);
-
-                //File.Delete(tempfile);
-
-                //while (Marshal.ReleaseComObject(Table) > 0) { }
-                //Marshal.FinalReleaseComObject(Table);
-
+                using (var table = new V7Table())
+                {
+                    table.SetTable(Table);                    // COM-объект Таблица 1С
+                    string report;
+                    mxl = MoxelMemLoader.LoadFromMemory(table, out report);
+                    ReadFromMemory(Table);
+                }
             }
             catch (Exception ex)
             {
