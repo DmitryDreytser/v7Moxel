@@ -12,11 +12,6 @@ using System.Threading.Tasks;
 using v7Moxel.Moxel.ExcelWriter;
 using static Moxel.MemoryReader;
 
-
-
-using System.Runtime.InteropServices;
-using System.Runtime.InteropServices.ComTypes;
-
 namespace Moxel
 {
 
@@ -140,7 +135,9 @@ namespace Moxel
             {
                 while (Marshal.ReleaseComObject(Table) > 0) { }
                 Marshal.FinalReleaseComObject(Table);
-                throw ex.InnerException;
+                // Пробрасываем исходную ошибку целиком (со стеком), а не только InnerException:
+                // при отсутствии inner-ошибки старый вариант падал с NullReferenceException.
+                throw new Exception(ex.Message, ex);
             }
         }
 
@@ -228,6 +225,8 @@ namespace Moxel
             if (--ObjectCount == 0) // При выгрузке последнего объекта из памяти отключим перехват, если он есть.
                 SaveWrapper.Wrap(false);
 
+            // Освобождаем ресурсы модели (кэши OLE-объектов), а не только ссылку.
+            mxl?.Dispose();
             mxl = null;
         }
 
