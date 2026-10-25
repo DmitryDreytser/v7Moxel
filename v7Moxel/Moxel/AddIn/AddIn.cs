@@ -5,7 +5,6 @@ using System.Reflection;
 using System.Collections;
 using System.Threading.Tasks;
 using System.Windows.Forms;
-using v7Moxel.Moxel.ExcelWriter;
 using System.Diagnostics;
 
 namespace Moxel
@@ -233,9 +232,8 @@ namespace Moxel
                     PDFWriter.onProgress += Writer_onProgress;
                 }
 
-                asyncEvent = (IAsyncEvent)connection;
-
-
+                if (asyncEvent == null)
+                    asyncEvent = (IAsyncEvent)connection;
 
                 OnInit();
                 refCount++;
@@ -293,30 +291,23 @@ namespace Moxel
                 {
                     if (statusLine != null)
                     {
-                        //while (Marshal.ReleaseComObject(statusLine) > 0) { };
                         Marshal.FinalReleaseComObject(statusLine);
                         statusLine = null;
                     }
 
                     if (errorLog != null)
                     {
-                        //while (Marshal.ReleaseComObject(errorLog) > 0) { };
                         Marshal.FinalReleaseComObject(errorLog);
                         errorLog = null;
                     }
 
                     if (asyncEvent != null)
                     {
-                        //while (Marshal.ReleaseComObject(asyncEvent) > 0) { };
                         Marshal.FinalReleaseComObject(asyncEvent);
                         asyncEvent = null;
                     }
-                    //if (connect1c != null)
-                    {
-                        //while (Marshal.ReleaseComObject(connect1c) > 0) { };
-                        //Marshal.FinalReleaseComObject(connect1c);
-                        connect1c = null;
-                    }
+
+                    connect1c = null;
                 }
                 catch(Exception ex) 
                 {

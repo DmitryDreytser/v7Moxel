@@ -312,16 +312,19 @@ namespace Moxel
 
         static bool ResolveGetDocument()
         {
-            IntPtr h = WinApi.GetModuleHandle("frame.dll");
-            if (h == IntPtr.Zero) return false;
-
-            IntPtr p = WinApi.GetProcAddress(h, GETDOCUMENT_ENTRY);
-            if (p != IntPtr.Zero)
+            foreach (string dll in new[] { "bkend.dll", "blang.dll", "moxel.dll" })
             {
-                _pGetDocument = p;
-                _GetDocument = Marshal.GetDelegateForFunctionPointer<_GetDocumentDelegate>(p);
-                Debug.WriteLine("[V7Table] " + GETDOCUMENT_ENTRY + " → " + "frame.dll");
-                return true;
+                IntPtr h = WinApi.GetModuleHandle(dll);
+                if (h == IntPtr.Zero) continue;
+
+                IntPtr p = WinApi.GetProcAddress(h, GETDOCUMENT_ENTRY);
+                if (p != IntPtr.Zero)
+                {
+                    _pGetDocument = p;
+                    _GetDocument = Marshal.GetDelegateForFunctionPointer<_GetDocumentDelegate>(p);
+                    Debug.WriteLine("[V7Table] " + GETDOCUMENT_ENTRY + " → " + dll);
+                    return true;
+                }
             }
             Debug.WriteLine("[V7Table] " + GETDOCUMENT_ENTRY + " не найден");
             return false;
@@ -366,7 +369,7 @@ namespace Moxel
         }
 
         /// <summary>Таблица.Напечатать(1).</summary>
-        public void Print(int copies) { InvokeTableMethod("Напечатать", copies); }
+        public void Print(int show) { InvokeTableMethod("Напечатать", show); }
 
         /// <summary>Таблица.Показать().</summary>
         public void Show(string title) { InvokeTableMethod("Показать", title ?? string.Empty); }

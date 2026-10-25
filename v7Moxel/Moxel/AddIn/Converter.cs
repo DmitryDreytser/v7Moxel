@@ -1,16 +1,9 @@
-﻿using AddIn;
-using System;
-using System.Collections.Generic;
+﻿using System;
 using System.ComponentModel;
-using System.Diagnostics;
 using System.IO;
-using System.Linq;
-using System.Reflection;
 using System.Runtime.InteropServices;
-using System.Text;
-using System.Threading.Tasks;
-using v7Moxel.Moxel.ExcelWriter;
 using static Moxel.MemoryReader;
+
 
 namespace Moxel
 {
@@ -73,6 +66,7 @@ namespace Moxel
         public static Moxel mxl;
         public static PageSettings PageSettings = null;
         public static CTableOutputContext TableObject = null;
+        
         static int ObjectCount = 0;
 
         static Converter()
@@ -91,53 +85,28 @@ namespace Moxel
                 ExcelWriter.MaxDegreeOfParallelism = value;
             }
         }
+        private static V7Table _attachedTable = null;
+
         public int WrapSaveAs(int doWrap = 1) => SaveWrapper.Wrap(doWrap == 1);
-        public void ReadFromMemory(object Table)
-        {
-            try
-            {
-
-
-                TableObject = CObject.FromComObject<CTableOutputContext>(Table);
-                PageSettings = TableObject.SheetDoc.PageSettings;
-
-                while (Marshal.ReleaseComObject(Table) > 0) { }
-                Marshal.FinalReleaseComObject(Table);
-
-            }
-            catch (Exception ex)
-            {
-                throw new Exception(ex.Message, ex);
-            }
-            finally
-            {
-                mxl?.Dispose();
-                mxl = null;
-            }
-        }
+        
+        public void ReadFromMemory(object Table) => Attach(Table);
 
         public void Attach(object Table)
         {
             mxl?.Dispose();
+            _attachedTable?.Dispose();
+            _attachedTable = null;
             try
             {
-                
-
-                using (var table = new V7Table())
-                {
-                    table.SetTable(Table);                    // COM-объект Таблица 1С
-                    string report;
-                    mxl = MoxelMemLoader.LoadFromMemory(table, out report);
-                    ReadFromMemory(Table);
-                }
+                _attachedTable = new V7Table();
+                _attachedTable.SetTable(Table);                   
+                PageSettings = _attachedTable.SheetDoc.PageSettings;
             }
             catch (Exception ex)
             {
                 while (Marshal.ReleaseComObject(Table) > 0) { }
                 Marshal.FinalReleaseComObject(Table);
-                // Пробрасываем исходную ошибку целиком (со стеком), а не только InnerException:
-                // при отсутствии inner-ошибки старый вариант падал с NullReferenceException.
-                throw new Exception(ex.Message, ex);
+                throw ex.InnerException;
             }
         }
 
@@ -148,6 +117,8 @@ namespace Moxel
                 throw new Exception($"Файл {FileNAme} не найден.");
 
             mxl?.Dispose();
+            _attachedTable?.Dispose();
+            _attachedTable = null;
             mxl = new Moxel(FileNAme);
         }
 
@@ -155,7 +126,17 @@ namespace Moxel
         {
             try
             {
-                if (mxl == null)
+                if (_attachedTable != null)
+                {
+                    if (format == SaveFormat.PDF)
+                        SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable);
+                    else
+                        SaveWrapper.WrapperSaveAs(_attachedTable.Context.SheetDoc.Pointer, filename, (int)format);
+
+                    return filename;
+                }
+
+                else if (mxl == null)
                 {
                     if (TableObject != null)
                         if (TableObject.SheetDoc.Length < 1024 * 1024 * 2 || !SaveWrapper.CanSaveExternal)
@@ -225,8 +206,6 @@ namespace Moxel
             if (--ObjectCount == 0) // При выгрузке последнего объекта из памяти отключим перехват, если он есть.
                 SaveWrapper.Wrap(false);
 
-            // Освобождаем ресурсы модели (кэши OLE-объектов), а не только ссылку.
-            mxl?.Dispose();
             mxl = null;
         }
 

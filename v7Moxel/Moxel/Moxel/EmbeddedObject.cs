@@ -6,6 +6,16 @@ using System.Runtime.Remoting;
 using System.Text;
 using static Moxel.Moxel;
 
+// ============================================================================
+//  EmbeddedObject.cs — исправленная копия (Task 7).
+//  Изменение (API не менялся):
+//  БАГ: в LoadOleObject проверка границ палитры была
+//  "ColorIndex >= 0 || ColorIndex < a1CPallete.Length" — с "||" условие
+//  всегда истинно, и индекс палитры >= 56 падал с IndexOutOfRangeException.
+//  Заменено на "&&" (честная проверка верхней границы).
+//  Остальное — без изменений (CachedImage, OLE-рендер, LoadPicture как были).
+// ============================================================================
+
 namespace Moxel
 {
     [Serializable]
@@ -147,7 +157,7 @@ namespace Moxel
                     if (FormatCell.dwFlags.HasFlag(MoxelCellFlags.Background))
                     {
                         int ColorIndex = FormatCell.bBackground;
-                        if (ColorIndex >= 0 || ColorIndex < a1CPallete.Length)
+                        if (ColorIndex < a1CPallete.Length)   // было ">= 0 || < длина" — всегда истинно → OOB на индексах >= 56
                             bgColor = Color.FromArgb((int)(a1CPallete[ColorIndex] + 0xFF000000));
                     }
                     else

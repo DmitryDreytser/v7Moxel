@@ -31,32 +31,28 @@ namespace Moxel
 
         public static Moxel ReadFromCSheetDoc(CSheetDoc SheetDoc)
         {
-            // Временный mxl-файл создаём в using — раньше он оставался на диске
-            // после каждой конвертации.
-            string tmpFile = Path.GetTempFileName();
-            try
+            //var pcStream = new Nito.ProducerConsumerStream.ProducerConsumerStream();
+
+            using (var ms = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite))
             {
-                using (var ms = new FileStream(tmpFile, FileMode.Create, FileAccess.ReadWrite))
                 using (CFile f = CFile.FromStream(ms))
+            {
+                try
                 {
-                    try
+                    using (CArchive Arch = new CArchive(f, SheetDoc))
                     {
-                        using (CArchive Arch = new CArchive(f, SheetDoc))
-                        {
-                            SheetDoc.Serialize(Arch);
-                            Arch.Flush();
-                            return new Moxel(ms);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        throw new Exception(ex.Message, ex);
+                        SheetDoc.Serialize(Arch);
+                        //await Task.Factory.StartNew(() => SheetDoc.Serialize(Arch), TaskCreationOptions.LongRunning);
+                        Arch.Flush();
+                        return new Moxel(ms);
+                        //return await Task.Factory.StartNew(() => new Moxel(ms), TaskCreationOptions.LongRunning);
                     }
                 }
+                catch (Exception ex)
+                {
+                    throw new Exception(ex.Message, ex);
+                }
             }
-            finally
-            {
-                try { File.Delete(tmpFile); } catch { /* не критично */ }
             }
         }
 
