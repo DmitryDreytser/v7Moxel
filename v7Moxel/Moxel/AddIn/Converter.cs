@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
 using static Moxel.MemoryReader;
@@ -227,12 +228,8 @@ namespace Moxel
         {
             if (_attachedTable == null)
                 throw new Exception("Таблица не присоединена. Вызовите Присоединить() / Attach().");
-
-            // РЕФАКТОРИНГ (п.1): единая точка выхода PDF — PdfExport.Save.
-            // GC.Collect отсюда убран: очистка кэшей модели выполняется в Dispose.
-            if (!SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable, engine))
+            if (SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable, engine) != 1)
                 throw new Exception($"Не удалось записать PDF ({engine}): {PdfExport.LastError}");
-
             return filename;
         }
 
@@ -270,17 +267,7 @@ namespace Moxel
             mxl = null;
         }
 
-        /// <summary>Запись присоединённой таблицы в PDF выбранным движком
-        /// (без влияния на свойство ФорматPDF). Возвращает имя файла.</summary>
-        public string SavePdf(string filename, PdfEngine engine)
-        {
-            if (_attachedTable == null)
-                throw new Exception("Таблица не присоединена. Вызовите Присоединить() / Attach().");
-            if (SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable, engine) != 1)
-                throw new Exception($"Не удалось записать PDF ({engine}): {PdfExport.LastError}");
 
-            return filename;
-        }
 
 
 
