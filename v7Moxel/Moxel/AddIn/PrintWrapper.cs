@@ -212,6 +212,19 @@ namespace Moxel
 
         private static Capture S; // печать 1С однопоточная — static достаточно
 
+        /// <summary>Взвод патчей (BeginPdfCapture) и их снятие (FinalizeCapture/UnpatchAll)
+        /// выполняются на одном потоке (UI-поток 1С). Замок не даёт другому потоку начать
+        /// второй захват, пока первый активен: иначе второй BeginPdfCapture сохранит уже
+        /// ЗАХУЖЕННЫЕ байты в OriginalBytes/_saved*, и последующее снятие патчей восстановит
+        /// в moxel.dll/mfc42.dll мусор вместо оригинального кода → AccessViolation при
+        /// повторных вызовах. Реентраность нативного цикла печати (вызов оригинала из хука)
+        /// этих методов не касается — lock здесь только вокруг публичных точек входа.</summary>
+        private static readonly object _captureLock = new object();
+
+        /// <summary>Флаг «мы уже внутри OnFilePrint»: защита от повторного синхронного
+        /// входа в цикл печати MFC до завершения предыдущего.</summary>
+        [ThreadStatic] private static bool _inOnFilePrint;
+
         private static bool _resolved;
         private static string _lastError = string.Empty;
         private static dCreateCPrintInfo CPrintInfo__ctor;
@@ -318,6 +331,28 @@ namespace Moxel
         /// и финализируется в OnEndPrinting. Реальной печати не будет.
         /// </summary>
         public static bool BeginPdfCapture(string pdfFile, EmfPdfSettings settings = null, bool raster = false)
+        {
+            // РЕФАКТОРИНГ (п.1, фикс AV): TryEnter — чтобы параллельный вызов не «съел»
+            // активный захват EndPdfCapture() в начале метода и не взял второй набор
+            // патчей поверх первого (см. комментарий у _captureLock). Захват печати
+            // однопоточный (UI 1С), поэтому при занятом замке отказываем сразу,
+            // без ожидания: блокировка UI-потока ожиданием недопустима.
+            if (!System.Threading.Monitor.TryEnter(_captureLock))
+            {
+                _lastError = "BeginPdfCapture: уже выполняется другой захват печати";
+                return false;
+            }
+            try
+            {
+                return BeginPdfCaptureCore(pdfFile, settings, raster);
+            }
+            finally
+            {
+                System.Threading.Monitor.Exit(_captureLock);
+            }
+        }
+
+        private static bool BeginPdfCaptureCore(string pdfFile, EmfPdfSettings settings, bool raster)
         {
             Resolve();
             _lastError = string.Empty;
@@ -443,11 +478,25 @@ namespace Moxel
         /// </summary>
         public static int EndPdfCapture()
         {
-            if (S == null)
-                return LastPageCount > 0 ? LastPageCount : -1;
+            // Тот же замок, что у BeginPdfCapture: параллельная финализация не должна
+            // снимать патчи «чужого» активного захвата.
+            if (!System.Threading.Monitor.TryEnter(_captureLock))
+            {
+                _lastError = "EndPdfCapture: захват печати используется другим потоком";
+                return -1;
+            }
+            try
+            {
+                if (S == null)
+                    return LastPageCount > 0 ? LastPageCount : -1;
 
-            try { return FinalizeCapture(); }
-            finally { S = null; }
+                return FinalizeCapture();
+            }
+            finally
+            {
+                S = null; // FinalizeCapture тоже обнуляет; страховка на случай исключения до него
+                System.Threading.Monitor.Exit(_captureLock);
+            }
         }
 
         /// <summary>

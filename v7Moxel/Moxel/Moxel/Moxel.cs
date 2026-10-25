@@ -320,7 +320,6 @@ namespace Moxel
         {
             if (_disposed)
                 return;                     // повторный вызов больше не даёт NRE
-
             _disposed = true;
 
             if(disposing)

@@ -240,10 +240,11 @@ namespace Moxel
             else
                 Converter.RaiseExtRuntimeError("Ошибка сохранения таблицы в HTML. Не удалось прочитать таблицу");
 
+            Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF: {PdfExport.LastError}");
             return 0;
         }
 
-        // РЕФАКТОРИНГ: весь вывод PDF идёт через единую точку PdfExport.Save
+        // РЕФАКТОРИНГ (п.1): весь вывод PDF идёт через единую точку PdfExport.Save
         // (цепочка движков и fallback-и реализованы там). Этот метод — тонкая обёртка:
         // конвертирует bool в коды 1/0, принятые у перехвата SaveAs, и поднимает ошибку
         // в UI 1С. Дублирующая логика PrintWrapper/ReadFromCSheetDoc/Pechkin отсюда удалена.
@@ -265,10 +266,41 @@ namespace Moxel
 
         static IntPtr FileSaveFilterResource;
 
+        /// <summary>Инициализация адресов. Идемпотентна и вызывается ЛЕНИВО при первом
+        /// Wrap(true), а НЕ из статического конструктора класса: раньше static-ctor
+        /// SaveWrapper тянул за собой делегат WrapperSaveAs → GetFunctionPointerForDelegate,
+        /// что приводило к инициализации типа Converter, который в своём static-ctor вызывал
+        /// Wrap(true). Патч CSheetDoc::SaveAs ставился при первой же ссылке на любой тип
+        /// сборки — ещё до подключения аддина к сеансу 1С и без возможности снятия.</summary>
+        private static bool Init()
+        {
+            if (hMoxel != 0)
+                return ProcSaveAs != IntPtr.Zero;
+
+            IntPtr hMod = WinApi.GetModuleHandle("Moxel.dll");
+            if (hMod == IntPtr.Zero)
+            {
+                Debug.WriteLine("SaveWrapper.Wrap: Moxel.dll не загружен");
+                return false;
+            }
+            hMoxel = hMod.ToInt32();
+            ProcSaveAs = WinApi.GetProcAddress(hMod, "?SaveAs@CSheetDoc@@QAEHPBDW4CSheetSaveAsType@@@Z");
+            if (ProcSaveAs == IntPtr.Zero)
+            {
+                Debug.WriteLine("SaveWrapper.Wrap: экспорт CSheetDoc::SaveAs не найден");
+                hMoxel = 0;
+                return false;
+            }
+            Marshal.Copy(ProcSaveAs, OriginalBytesSaveAs, 0, 6);
+            return true;
+        }
+
         public static int Wrap(bool DoWrap)
         {
             // ФИКС: охрана адресов — раньше Copy из нулевого указателя = AV процесса 1С
-            if (hMoxel == 0)
+            if (DoWrap && !Init())
+                return 0;
+            if (hMoxel == 0 && DoWrap)
             {
                 IntPtr hMod = WinApi.GetModuleHandle("Moxel.dll");
                 if (hMod == IntPtr.Zero)
