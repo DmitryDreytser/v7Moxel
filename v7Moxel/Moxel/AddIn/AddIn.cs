@@ -315,10 +315,10 @@ namespace Moxel
                 }
             }
 
+            // РЕФАКТОРИНГ (п.1): вместо двух принудительных GC.Collect — один сбор за
+            // мусором после освобождения COM-объектов; двойной Collect + WaitForPendingFinalizers
+            // на выгрузке аддина избыточен и подвешивал поток 1С.
             GC.Collect();
-            GC.Collect();
-            GC.WaitForPendingFinalizers();
-
             Marshal.CleanupUnusedObjectsInCurrentContext();
             return HRESULT.S_OK;
         }
