@@ -318,7 +318,7 @@ namespace Moxel
             GC.Collect();
             GC.Collect();
             GC.WaitForPendingFinalizers();
-
+            
             Marshal.CleanupUnusedObjectsInCurrentContext();
             return HRESULT.S_OK;
         }

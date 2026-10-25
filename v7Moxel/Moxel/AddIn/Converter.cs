@@ -155,7 +155,7 @@ namespace Moxel
                 if (_attachedTable != null)
                 {
                     if (format == SaveFormat.PDF)
-                        SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable);
+                        SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable, _pdfEngine);
                     else
                         SaveWrapper.WrapperSaveAs(_attachedTable.Context.SheetDoc.Pointer, filename, (int)format);
 
@@ -237,9 +237,16 @@ namespace Moxel
             mxl = null;
         }
 
+        /// <summary>Запись присоединённой таблицы в PDF выбранным движком
+        /// (без влияния на свойство ФорматPDF). Возвращает имя файла.</summary>
         public string SavePdf(string filename, PdfEngine engine)
         {
-            throw new NotImplementedException();
+            if (_attachedTable == null)
+                throw new Exception("Таблица не присоединена. Вызовите Присоединить() / Attach().");
+            if (SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable, engine) != 1)
+                throw new Exception($"Не удалось записать PDF ({engine}): {PdfExport.LastError}");
+
+            return filename;
         }
 
 

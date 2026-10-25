@@ -179,6 +179,12 @@
     <Compile Remove="Moxel\Moxel\Cell.cs" />
   </ItemGroup>
   <ItemGroup>
+    <None Remove="Moxel\AddIn\EmfVectorPdfWriter2.cs.disabled" />
+  </ItemGroup>
+  <ItemGroup>
+    <Compile Include="Moxel\AddIn\EmfVectorPdfWriter2.cs.disabled" />
+  </ItemGroup>
+  <ItemGroup>
     <Compile Update="Properties\Settings.Designer.cs">
       <DesignTimeSharedInput>True</DesignTimeSharedInput>
       <AutoGen>True</AutoGen>

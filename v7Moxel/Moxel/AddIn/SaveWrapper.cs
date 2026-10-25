@@ -243,65 +243,16 @@ namespace Moxel
             return 0;
         }
 
-        public static int SaveToPDF(IntPtr pSheetDoc, string FileName, V7Table table = null)
+        // РЕФАКТОРИНГ: весь вывод PDF идёт через единую точку PdfExport.Save
+        // (цепочка движков и fallback-и реализованы там). Этот метод — тонкая обёртка:
+        // конвертирует bool в коды 1/0, принятые у перехвата SaveAs, и поднимает ошибку
+        // в UI 1С. Дублирующая логика PrintWrapper/ReadFromCSheetDoc/Pechkin отсюда удалена.
+        public static int SaveToPDF(IntPtr pSheetDoc, string FileName, V7Table table = null, PdfEngine engine = PdfEngine.Auto)
         {
-            // НОВОЕ: канал №1 — родная печать 1С → EMF → PDF.
-            // Даёт точную печатную форму: колонтитулы (&P/&Q/&D/&T), разрывы страниц,
-            // масштаб/подгонку и рисунки рисует сам движок 1С.
-            if (PrintWrapper.IsAvailable)
-            {
-                try
-                {
-                    if (PrintWrapper.CaptureToPdf(pSheetDoc, FileName, table: table))
-                        return 1;
-                    Debug.WriteLine($"SaveToPDF: печать не сработала ({PrintWrapper.LastError}) — fallback на HTML/Pechkin");
-                }
-                catch (Exception ex)
-                {
-                    Debug.WriteLine($"SaveToPDF: PrintWrapper упал: {ex} — fallback на HTML/Pechkin");
-                }
-            }
+            if (PdfExport.Save(pSheetDoc, FileName, engine, table))
+                return 1;
 
-            // Канал №2 (fallback): модель → HTML → Pechkin (wkhtmltopdf)
-            Converter.mxl = null;
-
-            try
-            {
-                Converter.mxl = ReadFromCSheetDoc(new CSheetDoc(pSheetDoc));
-            }
-            catch (Exception ex)
-            {
-                Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу: {ex}");
-                return 0;
-            }
-
-            if (Converter.mxl != null)
-            {
-                try
-                {
-                    Converter.mxl.SaveAs(FileName, SaveFormat.PDF);
-                    return 1;
-                }
-                catch (Exception ex)
-                {
-                    string GetInnerException(Exception e)
-                    {
-                        if (e.InnerException != null)
-                            return GetInnerException(e.InnerException);
-                        return e.Message;
-                    }
-
-                    Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF :{GetInnerException(ex)}");
-                    return 0;
-                }
-                finally
-                {
-                    Converter.mxl.Dispose();
-                    Converter.mxl = null;
-                }
-            }
-
-            Converter.RaiseExtRuntimeError("Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу");
+            Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF: {PdfExport.LastError}");
             return 0;
         }
 
