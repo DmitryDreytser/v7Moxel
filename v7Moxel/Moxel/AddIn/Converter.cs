@@ -4,7 +4,6 @@ using System.IO;
 using System.Runtime.InteropServices;
 using static Moxel.MemoryReader;
 
-
 namespace Moxel
 {
 
@@ -266,6 +265,8 @@ namespace Moxel
             if (--ObjectCount == 0) // При выгрузке последнего объекта из памяти отключим перехват, если он есть.
                 SaveWrapper.Wrap(false);
 
+            // Освобождаем ресурсы модели (кэши OLE-объектов), а не только ссылку.
+            mxl?.Dispose();
             mxl = null;
         }
 
