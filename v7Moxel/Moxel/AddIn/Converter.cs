@@ -140,11 +140,15 @@ namespace Moxel
                         ? "Не удалось получить CSheetDoc из таблицы."
                         : _attachedTable.LastError);
                 PageSettings = _attachedTable.SheetDoc.PageSettings;
+                // РЕФАКТОРИНГ (п.2): запоминаем RCW как держатель для прямого
+                // загрузчика MoxelMemLoader в каналах SaveWrapper (Excel/HTML).
+                SaveWrapper._lastAttachedComHolder = Table;
             }
             catch (Exception ex)
             {
                 _attachedTable?.Dispose();
                 _attachedTable = null;
+                SaveWrapper._lastAttachedComHolder = null;
                 try
                 {
                     while (Marshal.ReleaseComObject(Table) > 0) { }
@@ -187,7 +191,8 @@ namespace Moxel
                 {
                     if (TableObject != null)
                         if (TableObject.SheetDoc.Length < 1024 * 1024 * 2 || !SaveWrapper.CanSaveExternal)
-                            mxl = ReadFromCSheetDoc(TableObject.SheetDoc);
+                            // РЕФАКТОРИНГ (п.2): единая точка загрузки — быстрый MemLoader + fallback
+                            mxl = LoadModel(TableObject.SheetDoc.Pointer, _attachedTable != null ? _attachedTable.ComObject : TableObject);
                         else
                         {
                             string tmpFileName = Path.GetTempFileName();

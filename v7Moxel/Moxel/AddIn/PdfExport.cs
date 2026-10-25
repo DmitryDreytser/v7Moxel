@@ -110,22 +110,12 @@ namespace Moxel
 
             try
             {
-                // Быстрый прямой канал чтения из памяти (без mxl-файла)
-                if (table != null)
-                {
-                    try
-                    {
-                        Converter.mxl = table.LoadMoxelFromMemory();
-                    }
-                    catch (Exception ex)
-                    {
-                        Debug.WriteLine($"PdfExport.ModelHtml: MemLoader не дал модель ({ex.Message}) — сериализация");
-                    }
-                }
-
-                // Fallback: сериализация через CArchive (проверенный путь)
-                if (Converter.mxl == null)
-                    Converter.mxl = ReadFromCSheetDoc(new CSheetDoc(pSheetDoc));
+                // РЕФАКТОРИНГ (п.2): единая точка загрузки модели — быстрый прямой
+                // канал MoxelMemLoader, при неудаче fallback через сериализацию
+                // (логика выбора загрузчика вынесена из этого метода в LoadModel).
+                Converter.mxl = table != null
+                    ? LoadModel(table)
+                    : LoadModel(pSheetDoc);
 
                 if (Converter.mxl == null)
                 {

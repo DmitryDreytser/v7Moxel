@@ -66,6 +66,54 @@ namespace Moxel
             return ReadFromCSheetDoc(SheetDoc);
         }
 
+        // ====================================================================
+        //  РЕФАКТОРИНГ (п.2): единая точка загрузки модели Moxel.
+        //  Раньше каждый канал (Excel/HTML/PDF-ModelHtml/COM) сам решал, каким
+        //  загрузчиком пользоваться, из-за чего медленный сериализационный путь
+        //  (CArchive -> временный mxl-файл) соседствовал с быстрым прямым
+        //  (MoxelMemLoader), а поведение каналов расходилось.
+        //  Теперь порядок единообразный: быстрый прямой канал -> при неудаче
+        //  проверенный fallback через сериализацию. Держатель RCW передаётся
+        //  необязательным параметром: без него MemSheet работает по голому
+        //  CSheetDoc* (валидация IsValid защищает от мусорной памяти).
+        // ====================================================================
+
+        /// <summary>Загрузить модель из таблицы по V7Table: быстрый прямой канал
+        /// памяти, при неудаче — сериализация в mxl (fallback).</summary>
+        public static Moxel LoadModel(V7Table table)
+        {
+            if (table == null || table.SheetDoc == null)
+                throw new InvalidOperationException("LoadModel: таблица не установлена.");
+
+            try
+            {
+                return MoxelMemLoader.LoadFromMemory(table);
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"LoadModel(V7Table): MemLoader не удался ({ex.Message}) — fallback: сериализация");
+            }
+            return ReadFromCSheetDoc(table.SheetDoc);
+        }
+
+        /// <summary>Загрузить модель по голому CSheetDoc*: быстрый прямой канал
+        /// (с держателем RCW, если известен), при неудаче — сериализация.</summary>
+        public static Moxel LoadModel(IntPtr pSheetDoc, object comHolder = null)
+        {
+            if (pSheetDoc == IntPtr.Zero)
+                throw new ArgumentException("LoadModel: pSheetDoc == IntPtr.Zero");
+
+            try
+            {
+                return MoxelMemLoader.LoadFromMemory(new MemSheet(pSheetDoc, comHolder));
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"LoadModel(ptr): MemLoader не удался ({ex.Message}) — fallback: сериализация");
+            }
+            return ReadFromCSheetDoc(new CSheetDoc(pSheetDoc));
+        }
+
 
         public class CSheetDoc : CObject
         {

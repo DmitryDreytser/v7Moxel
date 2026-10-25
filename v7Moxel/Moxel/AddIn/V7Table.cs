@@ -346,20 +346,33 @@ namespace Moxel
         /// <summary>
         /// Заполнить модель Moxel НАПРЯМУЮ из памяти CSheet (без сериализации
         /// в mxl, без временных файлов). Быстрый путь для Excel/HTML/PDF(Pechkin).
+        /// РЕФАКТОРИНГ (п.2): фактическая загрузка — в единой точке
+        /// MemoryReader.LoadModel (быстрый канал + fallback на сериализацию);
+        /// метод оставлен как стабильный API V7Table.
         /// </summary>
         public Moxel LoadMoxelFromMemory()
         {
             if (SheetDoc == null)
                 throw new InvalidOperationException("Таблица не установлена. Сначала SetTable().");
-            return MoxelMemLoader.LoadFromMemory(this);
+            return MemoryReader.LoadModel(this);
         }
 
-        /// <summary>То же, но с диагностическим отчётом загрузчика.</summary>
+        /// <summary>Загрузить модель с диагностическим отчётом прямого канала.
+        /// Отчёт даёт только MoxelMemLoader, поэтому здесь он вызывается напрямую;
+        /// при его неудаче — fallback через сериализацию (поведение как в LoadModel).</summary>
         public Moxel LoadMoxelFromMemory(out string report)
         {
             if (SheetDoc == null)
                 throw new InvalidOperationException("Таблица не установлена. Сначала SetTable().");
-            return MoxelMemLoader.LoadFromMemory(this, out report);
+            try
+            {
+                return MoxelMemLoader.LoadFromMemory(this, out report);
+            }
+            catch (Exception ex)
+            {
+                report = "MemLoader: " + ex.Message + "\nFallback: сериализация CArchive.";
+                return MemoryReader.ReadFromCSheetDoc(SheetDoc);
+            }
         }
 
         /// <summary>
