@@ -23,25 +23,10 @@
 using System;
 using System.Diagnostics;
 using System.IO;
-using System.Runtime.InteropServices;
 using static Moxel.MemoryReader;
 
 namespace Moxel
 {
-    /// <summary>Движок генерации PDF (COM-visible, индексы стабильны).</summary>
-    [ComVisible(true)]
-    public enum PdfEngine
-    {
-        /// <summary>Авто: печать+вектор -> печать+растр -> модель+HTML(Pechkin).</summary>
-        Auto = 0,
-        /// <summary>Перехват печати 1С -> EMF -> векторный PDF (текст выделяется).</summary>
-        PrintVector = 1,
-        /// <summary>Перехват печати 1С -> EMF -> растровый PDF (JPEG/Flate, Dpi).</summary>
-        PrintRaster = 2,
-        /// <summary>Модель MOXEL -> HTML -> Pechkin (wkhtmltopdf).</summary>
-        ModelHtml = 3,
-    }
-
     public static class PdfExport
     {
         /// <summary>Настройки растеризации для PrintRaster (Dpi, JPEG и т.п.). null — значения по умолчанию.</summary>
