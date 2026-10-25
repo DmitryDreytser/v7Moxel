@@ -9,6 +9,22 @@ using static Moxel.Moxel;
 
 namespace Moxel
 {
+    // ============================================================================
+    //  CSheetFormat.cs — исправленная копия (Task 7).
+    //  Изменения (API не менялся, раскладка 30 байт не менялась):
+    //  1. БАГ: в цветовых геттерах проверка границ палитры была
+    //     "bX >= 0 || bX < a1CPallete.Length" (в BgColor) и
+    //     "bX > 0 || bX < a1CPallete.Length" (в остальных) — условие с "||"
+    //     всегда истинно, поэтому индексы палитры >= 56 падали с
+    //     IndexOutOfRangeException. Заменено на честную проверку "bX < длины".
+    //     Для всех валидных индексов результат идентичен прежнему
+    //     (индекс 0 у BorderColor/FontColor раньше давал Color.Black,
+    //     palette[0] — тоже чёрный).
+    //  2. GetHashCode: был маршалинг структуры через AllocHGlobal на КАЖДЫЙ
+    //     вызов + XOR всех байт (порядконезависимая свёртка — массовые
+    //     коллизии). Заменён на дешёвый хэш по полям без аллокаций.
+    // ============================================================================
+
     [Serializable]
     [StructLayout(LayoutKind.Explicit, CharSet = CharSet.Ansi, Pack = 1, Size = 30)]
     unsafe public struct CSheetFormat
@@ -22,7 +38,6 @@ namespace Moxel
         public short wColumnPosition; // Используется в колонках
         [FieldOffset(0x04)]
         public short wHeight; // Используется в строках
-                              //}
                               // union{
         [FieldOffset(0x06)]
         public short wStartPage; // Колонтитулы
@@ -30,7 +45,7 @@ namespace Moxel
         public short wWidth; // Колонки
         [FieldOffset(0x06)]
         public short wRowPosition; // Строки
-                                   //}
+                                   // }
         [FieldOffset(0x08)]
         public short wFontNumber;
         [FieldOffset(0x0A)]
@@ -54,26 +69,26 @@ namespace Moxel
         public BorderStyle bBorderLeft;
         [FieldOffset(0x12)]
         public ObjectBorderStyle bPictureBorderStyle;
-        //};
+        // };
         // union {
         [FieldOffset(0x13)]
         public BorderStyle bBorderTop;
         [FieldOffset(0x13)]
         public ObjectBorderWidth bPictureBorderWidth;
-        //};
+        // };
         // union {
         [FieldOffset(0x14)]
         public BorderStyle bBorderRight;
         [FieldOffset(0x14)]
         public ObjectBorderPresence bPictureBorderPresence;
-        //};
+        // };
         // union {
         [MarshalAs(UnmanagedType.U1)]
         [FieldOffset(0x15)]
         public bool bPrintPicture;
         [FieldOffset(0x15)]
         public BorderStyle bBorderBottom;
-        //};
+        // };
         [FieldOffset(0x16)]
         public byte bPatternColor;
         [FieldOffset(0x17)]
@@ -131,9 +146,9 @@ namespace Moxel
         {
             get
             {
-                if (dwFlags.HasFlag(MoxelCellFlags.BorderColor))
-                    if (bBorderColor > 0 || bBorderColor < a1CPallete.Length)
-                        return Color.FromArgb((int)(a1CPallete[bBorderColor] + 0xFF000000));
+                if (dwFlags.HasFlag(MoxelCellFlags.BorderColor) &&
+                    bBorderColor < a1CPallete.Length)
+                    return Color.FromArgb((int)(a1CPallete[bBorderColor] + 0xFF000000));
                 return Color.Black;
             }
         }
@@ -142,9 +157,9 @@ namespace Moxel
         {
             get
             {
-                if (dwFlags.HasFlag(MoxelCellFlags.Background))
-                    if (bBackground >= 0 || bBackground < a1CPallete.Length)
-                        return Color.FromArgb((int)(a1CPallete[bBackground] + 0xFF000000));
+                if (dwFlags.HasFlag(MoxelCellFlags.Background) &&
+                    bBackground < a1CPallete.Length)
+                    return Color.FromArgb((int)(a1CPallete[bBackground] + 0xFF000000));
                 return Color.Empty;
             }
         }
@@ -153,48 +168,57 @@ namespace Moxel
         {
             get
             {
-                if (dwFlags.HasFlag(MoxelCellFlags.PatternColor))
-                    if (bPatternColor > 0 || bPatternColor < a1CPallete.Length)
-                        return Color.FromArgb((int)(a1CPallete[bPatternColor] + 0xFF000000));
+                if (dwFlags.HasFlag(MoxelCellFlags.PatternColor) &&
+                    bPatternColor < a1CPallete.Length)
+                    return Color.FromArgb((int)(a1CPallete[bPatternColor] + 0xFF000000));
                 return Color.Black;
             }
         }
+
         public Color FontColor
         {
             get
             {
-                if (dwFlags.HasFlag(MoxelCellFlags.FontColor))
-                    if (bFontColor > 0 || bFontColor < a1CPallete.Length)
-                        return Color.FromArgb((int)(a1CPallete[bFontColor] + 0xFF000000));
+                if (dwFlags.HasFlag(MoxelCellFlags.FontColor) &&
+                    bFontColor < a1CPallete.Length)
+                    return Color.FromArgb((int)(a1CPallete[bFontColor] + 0xFF000000));
                 return Color.Black;
             }
         }
 
-        private static byte[] ToBytes(CSheetFormat format)
-        {
-            int size = Marshal.SizeOf(format);
-            byte[] arr = new byte[size];
-
-            IntPtr buffer = Marshal.AllocHGlobal(size);
-            Marshal.StructureToPtr(format, buffer, false);
-            Marshal.Copy(buffer, arr, 0, size);
-            Marshal.FreeHGlobal(buffer);
-
-            return arr;
-        }
-
         public override int GetHashCode()
         {
-            int hash = 0;
-
-            byte[] buffer = ToBytes(this);
-
-            foreach (byte element in buffer)
+            // дешёвый хэш по полям: без Marshal.AllocHGlobal на каждый вызов;
+            // прежний XOR байт был порядконезависимым — перестановки полей
+            // давали один и тот же хэш
+            unchecked
             {
-                hash ^= element;
+                var h = (int)dwFlags;
+                h = (h * 397) ^ wHeight;
+                h = (h * 397) ^ wWidth;
+                h = (h * 397) ^ wStartPage;
+                h = (h * 397) ^ wFontNumber;
+                h = (h * 397) ^ wFontSize;
+                h = (h * 397) ^ (byte)bFontBold;
+                h = (h * 397) ^ (bFontItalic ? 1 : 0);
+                h = (h * 397) ^ (bFontUnderline ? 1 : 0);
+                h = (h * 397) ^ (int)bHorAlign;
+                h = (h * 397) ^ (int)bVertAlign;
+                h = (h * 397) ^ bPatternType;
+                h = (h * 397) ^ (int)bBorderLeft;
+                h = (h * 397) ^ (int)bBorderTop;
+                h = (h * 397) ^ (int)bBorderRight;
+                h = (h * 397) ^ (int)bBorderBottom;
+                h = (h * 397) ^ bPatternColor;
+                h = (h * 397) ^ bBorderColor;
+                h = (h * 397) ^ bFontColor;
+                h = (h * 397) ^ bBackground;
+                h = (h * 397) ^ (int)bControlContent;
+                h = (h * 397) ^ (int)bType;
+                h = (h * 397) ^ (bAllowEdit ? 1 : 0);
+                h = (h * 397) ^ bXZ1;
+                return h;
             }
-
-            return hash;
         }
     }
 }

@@ -50,7 +50,7 @@ namespace Moxel
                 if (value != 0)
                     FormatCell.dwFlags |= MoxelCellFlags.RowHeight;
                 else
-                    FormatCell.dwFlags ^= MoxelCellFlags.RowHeight;
+                    FormatCell.dwFlags &= ~MoxelCellFlags.RowHeight; // сброс флага (был ^= — ставил флаг, если его не было)
             }
         }
 

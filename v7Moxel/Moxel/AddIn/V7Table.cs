@@ -312,16 +312,19 @@ namespace Moxel
 
         static bool ResolveGetDocument()
         {
-            IntPtr h = WinApi.GetModuleHandle("frame.dll");
-            if (h == IntPtr.Zero) return false;
-
-            IntPtr p = WinApi.GetProcAddress(h, GETDOCUMENT_ENTRY);
-            if (p != IntPtr.Zero)
+            foreach (string dll in new[] { "bkend.dll", "blang.dll", "moxel.dll" })
             {
-                _pGetDocument = p;
-                _GetDocument = Marshal.GetDelegateForFunctionPointer<_GetDocumentDelegate>(p);
-                Debug.WriteLine("[V7Table] " + GETDOCUMENT_ENTRY + " → " + "frame.dll");
-                return true;
+                IntPtr h = WinApi.GetModuleHandle(dll);
+                if (h == IntPtr.Zero) continue;
+
+                IntPtr p = WinApi.GetProcAddress(h, GETDOCUMENT_ENTRY);
+                if (p != IntPtr.Zero)
+                {
+                    _pGetDocument = p;
+                    _GetDocument = Marshal.GetDelegateForFunctionPointer<_GetDocumentDelegate>(p);
+                    Debug.WriteLine("[V7Table] " + GETDOCUMENT_ENTRY + " → " + dll);
+                    return true;
+                }
             }
             Debug.WriteLine("[V7Table] " + GETDOCUMENT_ENTRY + " не найден");
             return false;
@@ -338,6 +341,25 @@ namespace Moxel
             if (SheetDoc == null)
                 throw new InvalidOperationException("Таблица не установлена. Сначала SetTable().");
             return MemoryReader.ReadFromMemory(SheetDoc.Pointer);
+        }
+
+        /// <summary>
+        /// Заполнить модель Moxel НАПРЯМУЮ из памяти CSheet (без сериализации
+        /// в mxl, без временных файлов). Быстрый путь для Excel/HTML/PDF(Pechkin).
+        /// </summary>
+        public Moxel LoadMoxelFromMemory()
+        {
+            if (SheetDoc == null)
+                throw new InvalidOperationException("Таблица не установлена. Сначала SetTable().");
+            return MoxelMemLoader.LoadFromMemory(this);
+        }
+
+        /// <summary>То же, но с диагностическим отчётом загрузчика.</summary>
+        public Moxel LoadMoxelFromMemory(out string report)
+        {
+            if (SheetDoc == null)
+                throw new InvalidOperationException("Таблица не установлена. Сначала SetTable().");
+            return MoxelMemLoader.LoadFromMemory(this, out report);
         }
 
         /// <summary>
@@ -366,7 +388,7 @@ namespace Moxel
         }
 
         /// <summary>Таблица.Напечатать(1).</summary>
-        public void Print(int copies) { InvokeTableMethod("Напечатать", copies); }
+        public void Print(int show) { InvokeTableMethod("Напечатать", show); }
 
         /// <summary>Таблица.Показать().</summary>
         public void Show(string title) { InvokeTableMethod("Показать", title ?? string.Empty); }

@@ -2,8 +2,18 @@
 using System.Runtime.InteropServices;
 using System.IO;
 using System;
-using v7Moxel.Moxel.ExcelWriter;
 using System.Threading.Tasks;
+
+// ============================================================================
+//  Moxel.cs — исправленная копия (Task 7).
+//  Изменения (API не менялся):
+//  1. Dispose: добавлен guard от повторного вызова (второй вызов после первого
+//     давал NullReferenceException на обнулённых полях) + GC.SuppressFinalize.
+//  2. Удалён пустой финализатор ~Moxel(): он ничего не делал, но переводил
+//     каждый экземпляр в очередь финализации (лишняя нагрузка на GC).
+//  Остальное — без изменений: публичные поля, Load, SaveAs и все методы
+//  сохранены как были (совместимость с HtmlWriter/PDFWriter и COM).
+// ============================================================================
 
 namespace Moxel
 {
@@ -281,11 +291,6 @@ namespace Moxel
             AreaNames = br.ReadList<MoxelArea>( intSize: true);
         }
 
-         ~Moxel()
-        {
-
-        }
-
         public bool SaveAs(string filename, SaveFormat format, int PaperWidth = 0, int PaperHeight = 0)
         {
             switch(format)
@@ -302,7 +307,40 @@ namespace Moxel
             
         }
 
-        // Реализация IDisposable вынесена в partial-класс (см. Moxel.Dispose.cs),
-        // чтобы этот файл содержал только логику модели и чтения формата MOXEL.
+        public void Dispose()
+        {
+            Dispose(true);
+            GC.SuppressFinalize(this);
+        }
+
+        private bool _disposed;
+
+        void Dispose(bool disposing)
+        {
+            if (_disposed)
+                return;                     // повторный вызов больше не даёт NRE
+            _disposed = true;
+
+            if(disposing)
+            {
+                foreach(var obj in Objects)
+                {
+                    obj.pObject?.Dispose();
+                }
+
+                FormatsList = null;
+                stringTable = null;
+                FontList = null;
+                Columns = null;
+                Rows = null;
+                Objects = null;
+                Unions = null;
+                VerticalSections = null;
+                HorisontalSections = null;
+                HorisontalPageBreaks = null;
+                VerticalPageBreaks = null;
+                AreaNames = null;
+            }
+        }
     }
 }

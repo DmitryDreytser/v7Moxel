@@ -44,6 +44,12 @@ namespace Moxel
         [DllImport("User32.dll")]
         public static extern bool ReleaseDC(IntPtr hWnd, IntPtr hDC);
 
+        [DllImport("user32.dll")]
+        public static extern IntPtr DeleteDC(IntPtr hWnd);
+
+        [DllImport("user32.dll", CharSet = CharSet.Auto)]
+        internal extern static IntPtr CreateDCW(string driver, string modeName, string port, IntPtr zero);
+
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, IntPtr wParam, StringBuilder lParam);
@@ -59,7 +65,6 @@ namespace Moxel
 
         [DllImport("user32.dll", CharSet = CharSet.Auto)]
         public static extern IntPtr SendMessage(IntPtr hWnd, int Msg, int wParam, IntPtr lParam);
-
 
         [DllImport("gdi32.dll")]
         public static extern int GetDeviceCaps(IntPtr hdc, int nIndex);
@@ -91,5 +96,7 @@ namespace Moxel
         {
             return Marshal.GetDelegateForFunctionPointer<T>(GetProcAddress(GetModuleHandle(ModuleName), FuncOrdinal));
         }
+
+        
     }
 }
