@@ -1,0 +1,166 @@
+From 9b30a5d01c95c77f0c1e1e872aa72ac42979c471 Mon Sep 17 00:00:00 2001
+From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
+Date: Sun, 25 Oct 2026 17:32:49 +0000
+Subject: [PATCH 5/6] =?UTF-8?q?=D0=A0=D0=B5=D1=84=D0=B0=D0=BA=D1=82=D0=BE?=
+ =?UTF-8?q?=D1=80=D0=B8=D0=BD=D0=B3=20=D0=BF.1:=20=D0=B5=D0=B4=D0=B8=D0=BD?=
+ =?UTF-8?q?=D0=B0=D1=8F=20=D1=82=D0=BE=D1=87=D0=BA=D0=B0=20=D0=B2=D1=8B?=
+ =?UTF-8?q?=D1=85=D0=BE=D0=B4=D0=B0=20PDF=20=D1=87=D0=B5=D1=80=D0=B5=D0=B7?=
+ =?UTF-8?q?=20PdfExport.Save?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+- SaveWrapper.SaveToPDF сведён к тонкой обёртке над PdfExport.Save (60 строк
+  дублирующей логики PrintWrapper/ReadFromCSheetDoc/Pechkin удалены); добавлен
+  параметр PdfEngine (по умолчанию Auto — поведение перехвата диалога не меняется)
+- Converter: реализован отсутствовавший метод SavePdf из IConverter (блокировал
+  компиляцию); Save(...,PDF) теперь передаёт выбранное свойство ФорматPDF
+- Убраны двойные GC.Collect в finally Converter.Save и в IInitDone.Done
+  (AddIn.cs): один сбор после FinalReleaseComObject достаточно; очистка модели
+  выполняется в Moxel.Dispose
+- Проверено: все вызовы CaptureToPdf/LoadMoxelFromMemory соответствуют сигнатурам
+---
+ v7Moxel/Moxel/AddIn/AddIn.cs       |  6 +--
+ v7Moxel/Moxel/AddIn/Converter.cs   | 19 +++++++--
+ v7Moxel/Moxel/AddIn/SaveWrapper.cs | 65 ++++--------------------------
+ 3 files changed, 27 insertions(+), 63 deletions(-)
+
+diff --git a/v7Moxel/Moxel/AddIn/AddIn.cs b/v7Moxel/Moxel/AddIn/AddIn.cs
+index 62f78ee..a7c2d8e 100644
+--- a/v7Moxel/Moxel/AddIn/AddIn.cs
++++ b/v7Moxel/Moxel/AddIn/AddIn.cs
+@@ -315,10 +315,10 @@ namespace Moxel
+                 }
+             }
+ 
++            // РЕФАКТОРИНГ (п.1): вместо двух принудительных GC.Collect — один сбор за
++            // мусором после освобождения COM-объектов; двойной Collect + WaitForPendingFinalizers
++            // на выгрузке аддина избыточен и подвешивал поток 1С.
+             GC.Collect();
+-            GC.Collect();
+-            GC.WaitForPendingFinalizers();
+-
+             Marshal.CleanupUnusedObjectsInCurrentContext();
+             return HRESULT.S_OK;
+         }
+diff --git a/v7Moxel/Moxel/AddIn/Converter.cs b/v7Moxel/Moxel/AddIn/Converter.cs
+index 8dc8bcf..24cdd04 100644
+--- a/v7Moxel/Moxel/AddIn/Converter.cs
++++ b/v7Moxel/Moxel/AddIn/Converter.cs
+@@ -156,7 +156,7 @@ namespace Moxel
+                 if (_attachedTable != null)
+                 {
+                     if (format == SaveFormat.PDF)
+-                        SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable);
++                        SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable, _pdfEngine);
+                     else
+                         SaveWrapper.WrapperSaveAs(_attachedTable.Context.SheetDoc.Pointer, filename, (int)format);
+ 
+@@ -199,11 +199,24 @@ namespace Moxel
+             {
+                 mxl?.Dispose();
+                 mxl = null;
+-                GC.Collect();
+-                GC.Collect();
+             }
+         }
+ 
++        /// <summary>Запись присоединённой таблицы в PDF выбранным движком
++        /// (без влияния на свойство ФорматPDF). Возвращает имя файла.</summary>
++        public string SavePdf(string filename, PdfEngine engine)
++        {
++            if (_attachedTable == null)
++                throw new Exception("Таблица не присоединена. Вызовите Присоединить() / Attach().");
++
++            // РЕФАКТОРИНГ (п.1): единая точка выхода PDF — PdfExport.Save.
++            // GC.Collect отсюда убран: очистка кэшей модели выполняется в Dispose.
++            if (!SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable, engine))
++                throw new Exception($"Не удалось записать PDF ({engine}): {PdfExport.LastError}");
++
++            return filename;
++        }
++
+ 
+         #region AddIn events
+ 
+diff --git a/v7Moxel/Moxel/AddIn/SaveWrapper.cs b/v7Moxel/Moxel/AddIn/SaveWrapper.cs
+index dac4273..b4f76a6 100644
+--- a/v7Moxel/Moxel/AddIn/SaveWrapper.cs
++++ b/v7Moxel/Moxel/AddIn/SaveWrapper.cs
+@@ -243,65 +243,16 @@ namespace Moxel
+             return 0;
+         }
+ 
+-        public static int SaveToPDF(IntPtr pSheetDoc, string FileName, V7Table table = null)
++        // РЕФАКТОРИНГ (п.1): весь вывод PDF идёт через единую точку PdfExport.Save
++        // (цепочка движков и fallback-и реализованы там). Этот метод — тонкая обёртка:
++        // конвертирует bool в коды 1/0, принятые у перехвата SaveAs, и поднимает ошибку
++        // в UI 1С. Дублирующая логика PrintWrapper/ReadFromCSheetDoc/Pechkin отсюда удалена.
++        public static int SaveToPDF(IntPtr pSheetDoc, string FileName, V7Table table = null, PdfEngine engine = PdfEngine.Auto)
+         {
+-            // НОВОЕ: канал №1 — родная печать 1С → EMF → PDF.
+-            // Даёт точную печатную форму: колонтитулы (&P/&Q/&D/&T), разрывы страниц,
+-            // масштаб/подгонку и рисунки рисует сам движок 1С.
+-            if (PrintWrapper.IsAvailable)
+-            {
+-                try
+-                {
+-                    if (PrintWrapper.CaptureToPdf(pSheetDoc, FileName, table: table))
+-                        return 1;
+-                    Debug.WriteLine($"SaveToPDF: печать не сработала ({PrintWrapper.LastError}) — fallback на HTML/Pechkin");
+-                }
+-                catch (Exception ex)
+-                {
+-                    Debug.WriteLine($"SaveToPDF: PrintWrapper упал: {ex} — fallback на HTML/Pechkin");
+-                }
+-            }
+-
+-            // Канал №2 (fallback): модель → HTML → Pechkin (wkhtmltopdf)
+-            Converter.mxl = null;
+-
+-            try
+-            {
+-                Converter.mxl = ReadFromCSheetDoc(new CSheetDoc(pSheetDoc));
+-            }
+-            catch (Exception ex)
+-            {
+-                Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу: {ex}");
+-                return 0;
+-            }
+-
+-            if (Converter.mxl != null)
+-            {
+-                try
+-                {
+-                    Converter.mxl.SaveAs(FileName, SaveFormat.PDF);
+-                    return 1;
+-                }
+-                catch (Exception ex)
+-                {
+-                    string GetInnerException(Exception e)
+-                    {
+-                        if (e.InnerException != null)
+-                            return GetInnerException(e.InnerException);
+-                        return e.Message;
+-                    }
+-
+-                    Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF :{GetInnerException(ex)}");
+-                    return 0;
+-                }
+-                finally
+-                {
+-                    Converter.mxl.Dispose();
+-                    Converter.mxl = null;
+-                }
+-            }
++            if (PdfExport.Save(pSheetDoc, FileName, engine, table))
++                return 1;
+ 
+-            Converter.RaiseExtRuntimeError("Ошибка сохранения таблицы в PDF. Не удалось прочитать таблицу");
++            Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF: {PdfExport.LastError}");
+             return 0;
+         }
+ 
+-- 
+2.39.5
+

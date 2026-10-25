@@ -1,0 +1,425 @@
+From c7d293a4b77d5913a4c6c24910197163294aeb2b Mon Sep 17 00:00:00 2001
+From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
+Date: Sun, 25 Oct 2026 16:23:38 +0000
+Subject: [PATCH 4/6] Add PdfExport.cs with multi-engine PDF generation
+ (vector/raster/HTML) and COM integration - Create unified PdfExport entry
+ point supporting Auto, PrintVector, PrintRaster, and ModelHtml engines -
+ Extend Converter COM interface with SavePdf method and PdfEngine property for
+ format selection - Refactor PrintWrapper to support both vector
+ (EmfVectorPdfWriter) and raster (EmfPdfWriter) output modes - Implement
+ direct memory loading in V7Table via LoadMoxelFromMemory() to bypass
+ serialization overhead - Fix temporary file leakage in
+ MemoryReader.ReadFromCSheetDoc by ensuring proper cleanup of mxl files
+
+---
+ v7Moxel/Moxel/AddIn/Converter.cs              |  35 +++-
+ .../Moxel/AddIn/MemoryReader/MemoryReader.cs  |  38 ++--
+ v7Moxel/Moxel/AddIn/PdfExport.cs              | 169 ++++++++++++++++++
+ v7Moxel/Moxel/AddIn/PrintWrapper.cs           |  19 +-
+ v7Moxel/Moxel/AddIn/V7Table.cs                |  19 ++
+ 5 files changed, 254 insertions(+), 26 deletions(-)
+ create mode 100644 v7Moxel/Moxel/AddIn/PdfExport.cs
+
+diff --git a/v7Moxel/Moxel/AddIn/Converter.cs b/v7Moxel/Moxel/AddIn/Converter.cs
+index 50c41f7..8dc8bcf 100644
+--- a/v7Moxel/Moxel/AddIn/Converter.cs
++++ b/v7Moxel/Moxel/AddIn/Converter.cs
+@@ -29,6 +29,9 @@ namespace Moxel
+         [Alias("Записать")]
+         string Save(string filename, SaveFormat format);
+ 
++        [Alias("ЗаписатьPDF")]
++        string SavePdf(string filename, PdfEngine engine);
++
+         [Alias("ПерехватитьЗапись")]
+         int WrapSaveAs(int doWrap = 1);
+ 
+@@ -40,6 +43,9 @@ namespace Moxel
+ 
+         [Alias("КоличествоПотоковКонвертации")]
+         int MaxDegreeOfParallelism { get; set; }
++
++        [Alias("ФорматPDF")]
++        PdfEngine PdfEngine { get; set; }
+     }
+ 
+ 
+@@ -87,10 +93,20 @@ namespace Moxel
+         }
+         private static V7Table _attachedTable = null;
+ 
++        Moxel.PdfEngine _pdfEngine = Moxel.PdfEngine.Auto;
++
+         public int WrapSaveAs(int doWrap = 1) => SaveWrapper.Wrap(doWrap == 1);
+         
+         public void ReadFromMemory(object Table) => Attach(Table);
+ 
++        /// <summary>Движок PDF по умолчанию (используется в Save(...,PDF) и перехвате диалога).
++        /// Присваивание — потокобезопасно (plain field write).</summary>
++        public Moxel.PdfEngine PdfEngine
++        {
++            get { return _pdfEngine; }
++            set { _pdfEngine = value; }
++        }
++
+         public void Attach(object Table)
+         {
+             mxl?.Dispose();
+@@ -99,14 +115,25 @@ namespace Moxel
+             try
+             {
+                 _attachedTable = new V7Table();
+-                _attachedTable.SetTable(Table);                   
++                if (!_attachedTable.SetTable(Table))
++                    throw new Exception(string.IsNullOrEmpty(_attachedTable.LastError)
++                        ? "Не удалось получить CSheetDoc из таблицы."
++                        : _attachedTable.LastError);
+                 PageSettings = _attachedTable.SheetDoc.PageSettings;
+             }
+             catch (Exception ex)
+             {
+-                while (Marshal.ReleaseComObject(Table) > 0) { }
+-                Marshal.FinalReleaseComObject(Table);
+-                throw ex.InnerException;
++                _attachedTable?.Dispose();
++                _attachedTable = null;
++                try
++                {
++                    while (Marshal.ReleaseComObject(Table) > 0) { }
++                    Marshal.FinalReleaseComObject(Table);
++                }
++                catch { /* объект уже не RCW — игнорируем */ }
++                // Бросаем исходное исключение с сохранением стека (раньше "throw ex.InnerException"
++                // терял стек и давал NullReferenceException при отсутствии inner-ошибки).
++                throw;
+             }
+         }
+ 
+diff --git a/v7Moxel/Moxel/AddIn/MemoryReader/MemoryReader.cs b/v7Moxel/Moxel/AddIn/MemoryReader/MemoryReader.cs
+index b1ea362..7ff81b2 100644
+--- a/v7Moxel/Moxel/AddIn/MemoryReader/MemoryReader.cs
++++ b/v7Moxel/Moxel/AddIn/MemoryReader/MemoryReader.cs
+@@ -31,28 +31,34 @@ namespace Moxel
+ 
+         public static Moxel ReadFromCSheetDoc(CSheetDoc SheetDoc)
+         {
+-            //var pcStream = new Nito.ProducerConsumerStream.ProducerConsumerStream();
+-
+-            using (var ms = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite))
+-            {
+-                using (CFile f = CFile.FromStream(ms))
++            // ВНИМАНИЕ: Path.GetTempFileName() создаёт файл на диске — раньше его имя
++            // не сохранялось и временный mxl оставался в %TEMP% после каждой конвертации.
++            string tmpName = Path.GetTempFileName();
++            try
+             {
+-                try
++                using (var ms = new FileStream(tmpName, FileMode.Create, FileAccess.ReadWrite))
+                 {
+-                    using (CArchive Arch = new CArchive(f, SheetDoc))
++                    using (CFile f = CFile.FromStream(ms))
+                     {
+-                        SheetDoc.Serialize(Arch);
+-                        //await Task.Factory.StartNew(() => SheetDoc.Serialize(Arch), TaskCreationOptions.LongRunning);
+-                        Arch.Flush();
+-                        return new Moxel(ms);
+-                        //return await Task.Factory.StartNew(() => new Moxel(ms), TaskCreationOptions.LongRunning);
++                        try
++                        {
++                            using (CArchive Arch = new CArchive(f, SheetDoc))
++                            {
++                                SheetDoc.Serialize(Arch);
++                                Arch.Flush();
++                                return new Moxel(ms);
++                            }
++                        }
++                        catch (Exception ex)
++                        {
++                            throw new Exception(ex.Message, ex);
++                        }
+                     }
+                 }
+-                catch (Exception ex)
+-                {
+-                    throw new Exception(ex.Message, ex);
+-                }
+             }
++            finally
++            {
++                try { File.Delete(tmpName); } catch { }
+             }
+         }
+ 
+diff --git a/v7Moxel/Moxel/AddIn/PdfExport.cs b/v7Moxel/Moxel/AddIn/PdfExport.cs
+new file mode 100644
+index 0000000..c5ca0c6
+--- /dev/null
++++ b/v7Moxel/Moxel/AddIn/PdfExport.cs
+@@ -0,0 +1,169 @@
++// ============================================================================
++// PdfExport.cs — единая точка выхода PDF из перехвата SaveAs и из COM-объекта
++// Converter. Пользователь выбирает, какой движок рисует PDF.
++//
++//   PdfEngine.Auto        — цепочка: векторный EMF -> растровый EMF -> Pechkin(HTML).
++//                           Каждый шаг даёт fallback на следующий (как было в v2
++//                           SaveWrapper, но с раздельными векторным/растровым EMF).
++//   PdfEngine.PrintVector — PrintWrapper (перехват родной печати 1С -> EMF) +
++//                           EmfVectorPdfWriter: выделяемый текст, встроенные TTF,
++//                           точная печатная форма (колонтитулы &P/&Q, разрывы).
++//   PdfEngine.PrintRaster — тот же захват печати, но EmfPdfWriter: страницы
++//                           растеризуются (Dpi/Jpeg настраиваются через Settings).
++//   PdfEngine.ModelHtml   — модель Moxel -> HtmlWriter -> Pechkin (wkhtmltopdf).
++//                           Не требует ни view, ни принтера; качество — как у HTML.
++//
++// HeadlessPrintWrapper НЕ подключается (не протестирован).
++//
++// ЧТЕНИЕ ИЗ ПАМЯТИ: для ModelHtml используется быстрый прямой канал
++// V7Table.LoadMoxelFromMemory() (MoxelMemLoader, без сериализации в mxl);
++// при его неудаче — проверенный сериализационный ReadFromCSheetDoc.
++// ============================================================================
++
++using System;
++using System.Diagnostics;
++using System.IO;
++using System.Runtime.InteropServices;
++using static Moxel.MemoryReader;
++
++namespace Moxel
++{
++    /// <summary>Движок генерации PDF (COM-visible, индексы стабильны).</summary>
++    [ComVisible(true)]
++    public enum PdfEngine
++    {
++        /// <summary>Авто: печать+вектор -> печать+растр -> модель+HTML(Pechkin).</summary>
++        Auto = 0,
++        /// <summary>Перехват печати 1С -> EMF -> векторный PDF (текст выделяется).</summary>
++        PrintVector = 1,
++        /// <summary>Перехват печати 1С -> EMF -> растровый PDF (JPEG/Flate, Dpi).</summary>
++        PrintRaster = 2,
++        /// <summary>Модель MOXEL -> HTML -> Pechkin (wkhtmltopdf).</summary>
++        ModelHtml = 3,
++    }
++
++    public static class PdfExport
++    {
++        /// <summary>Настройки растеризации для PrintRaster (Dpi, JPEG и т.п.). null — значения по умолчанию.</summary>
++        public static EmfPdfSettings RasterSettings = null;
++
++        /// <summary>Настройки вектора для PrintVector (шрифты, Compress). null — значения по умолчанию.</summary>
++        public static EmfPdfSettings VectorSettings = null;
++
++        /// <summary>Последняя ошибка (для диагностики из 1С).</summary>
++        public static string LastError { get; private set; } = string.Empty;
++
++        /// <summary>
++        /// Сохранить таблицу (по указателю CSheetDoc) в PDF выбранным движком.
++        /// table — опционально: управляемая обёртка (нужна для ModelHtml-канала
++        /// и для печати никогда не показанной таблицы через Напечатать(0)).
++        /// </summary>
++        public static bool Save(IntPtr pSheetDoc, string fileName, PdfEngine engine, V7Table table = null)
++        {
++            LastError = string.Empty;
++
++            switch (engine)
++            {
++                case PdfEngine.PrintVector:
++                    return CapturePdf(pSheetDoc, fileName, false, table);
++                case PdfEngine.PrintRaster:
++                    return CapturePdf(pSheetDoc, fileName, true, table);
++                case PdfEngine.ModelHtml:
++                    return ModelHtmlPdf(pSheetDoc, fileName, table);
++                default: // Auto: вектор -> растр -> HTML
++                    if (CapturePdf(pSheetDoc, fileName, false, table)) return true;
++                    string vecErr = LastError;
++                    Debug.WriteLine($"PdfExport.Auto: вектор не удался ({vecErr}) — пробую растр");
++                    if (CapturePdf(pSheetDoc, fileName, true, table)) return true;
++                    string rasErr = LastError;
++                    Debug.WriteLine($"PdfExport.Auto: растр не удался ({rasErr}) — fallback Pechkin");
++                    if (ModelHtmlPdf(pSheetDoc, fileName, table)) return true;
++                    LastError = $"Все каналы PDF исчерпаны. Вектор: {vecErr}; Растр: {rasErr}; HTML: {LastError}";
++                    return false;
++            }
++        }
++
++        /// <summary>Канал «перехват печати -> EMF -> PDF». raster=true — растеризация (EmfPdfWriter).</summary>
++        static bool CapturePdf(IntPtr pSheetDoc, string fileName, bool raster, V7Table table)
++        {
++            string mode = raster ? "PrintRaster" : "PrintVector";
++            try
++            {
++                if (!PrintWrapper.IsAvailable)
++                {
++                    LastError = $"{mode}: перехват печати недоступен ({PrintWrapper.LastError})";
++                    return false;
++                }
++
++                var settings = raster ? RasterSettings : VectorSettings;
++
++                if (PrintWrapper.CaptureToPdf(pSheetDoc, fileName, settings, table, raster))
++                {
++                    if (File.Exists(fileName) && new FileInfo(fileName).Length > 0)
++                        return true;
++                    LastError = $"{mode}: PDF не создан";
++                    return false;
++                }
++
++                LastError = $"{mode}: {PrintWrapper.LastError}";
++                return false;
++            }
++            catch (Exception ex)
++            {
++                LastError = $"{mode}: {ex.Message}";
++                Debug.WriteLine($"PdfExport.{mode}: {ex}");
++                return false;
++            }
++        }
++
++        /// <summary>Канал «модель -> HTML -> Pechkin».</summary>
++        static bool ModelHtmlPdf(IntPtr pSheetDoc, string fileName, V7Table table)
++        {
++            Converter.mxl?.Dispose();
++            Converter.mxl = null;
++
++            try
++            {
++                // Быстрый прямой канал чтения из памяти (без mxl-файла)
++                if (table != null)
++                {
++                    try
++                    {
++                        Converter.mxl = table.LoadMoxelFromMemory();
++                    }
++                    catch (Exception ex)
++                    {
++                        Debug.WriteLine($"PdfExport.ModelHtml: MemLoader не дал модель ({ex.Message}) — сериализация");
++                    }
++                }
++
++                // Fallback: сериализация через CArchive (проверенный путь)
++                if (Converter.mxl == null)
++                    Converter.mxl = ReadFromCSheetDoc(new CSheetDoc(pSheetDoc));
++
++                if (Converter.mxl == null)
++                {
++                    LastError = "ModelHtml: не удалось прочитать таблицу";
++                    return false;
++                }
++
++                ExcelWriter.PageSettings = new CSheetDoc(pSheetDoc).PageSettings;
++                Converter.mxl.SaveAs(fileName, SaveFormat.PDF);
++                return File.Exists(fileName);
++            }
++            catch (Exception ex)
++            {
++                Exception inner = ex;
++                while (inner.InnerException != null) inner = inner.InnerException;
++                LastError = $"ModelHtml: {inner.Message}";
++                Debug.WriteLine($"PdfExport.ModelHtml: {ex}");
++                return false;
++            }
++            finally
++            {
++                Converter.mxl?.Dispose();
++                Converter.mxl = null;
++            }
++        }
++    }
++}
+diff --git a/v7Moxel/Moxel/AddIn/PrintWrapper.cs b/v7Moxel/Moxel/AddIn/PrintWrapper.cs
+index 74ea6ea..cbfaa01 100644
+--- a/v7Moxel/Moxel/AddIn/PrintWrapper.cs
++++ b/v7Moxel/Moxel/AddIn/PrintWrapper.cs
+@@ -195,6 +195,8 @@ namespace Moxel
+         {
+             public string PdfFile;
+             public EmfPdfSettings Settings;
++            /// <summary>true — страницы отдавать EmfPdfWriter (растр), иначе EmfVectorPdfWriter (вектор).</summary>
++            public bool Raster;
+             public IntPtr pCDC;        // CDC* из OnBeginPrinting
+             public IntPtr hPrinterDC;  // реальный DC принтера
+             public IntPtr hEmfDC;      // текущий DC метафайла (страница в записи)
+@@ -315,7 +317,7 @@ namespace Moxel
+         /// Вооружить перехват. Родная печать (Напечатать(1)/кнопка печати) запишет страницы в PDF
+         /// и финализируется в OnEndPrinting. Реальной печати не будет.
+         /// </summary>
+-        public static bool BeginPdfCapture(string pdfFile, EmfPdfSettings settings = null)
++        public static bool BeginPdfCapture(string pdfFile, EmfPdfSettings settings = null, bool raster = false)
+         {
+             Resolve();
+             _lastError = string.Empty;
+@@ -365,7 +367,7 @@ namespace Moxel
+                 _cbGetDeviceCaps = GetDeviceCapsHook;
+                 _cbDoPrintDialog = DoPrintDialogHook;
+ 
+-                S = new Capture { PdfFile = pdfFile, Settings = settings ?? new EmfPdfSettings() };
++                S = new Capture { PdfFile = pdfFile, Settings = settings ?? new EmfPdfSettings(), Raster = raster };
+                 LastPageCount = 0;
+ 
+                 // 1) Процедурные патчи CSheetView (6 байт: PUSH stub; RET)
+@@ -452,7 +454,7 @@ namespace Moxel
+         /// Высокий уровень: PDF одной таблицы. Сам находит CView документа и запускает родной
+         /// цикл печати (CView::OnFilePrint). true — PDF записан; иначе caller должен дать fallback.
+         /// </summary>
+-        public static bool CaptureToPdf(IntPtr pSheetDoc, string pdfFile, EmfPdfSettings settings = null, V7Table table = null)
++        public static bool CaptureToPdf(IntPtr pSheetDoc, string pdfFile, EmfPdfSettings settings = null, V7Table table = null, bool raster = false)
+         {
+             Resolve();
+             if (pSheetDoc == IntPtr.Zero || string.IsNullOrEmpty(pdfFile))
+@@ -464,7 +466,7 @@ namespace Moxel
+                 return false;
+             }
+ 
+-            if (!BeginPdfCapture(pdfFile, settings))
++            if (!BeginPdfCapture(pdfFile, settings, raster))
+                 return false;
+ 
+             try
+@@ -841,8 +843,13 @@ namespace Moxel
+                 return -1;
+             }
+ 
+-            bool ok = EmfVectorPdfWriter.Save(cap.Pages, cap.PdfFile, cap.Settings);
+-            Debug.WriteLine($"PrintWrapper: PDF {(ok ? "записан" : "НЕ записан")}, страниц {cap.Pages.Count} → {cap.PdfFile}");
++            // Выбор писателя EMF -> PDF: вектор (EmfVectorPdfWriter, текст выделяется)
++            // или растр (EmfPdfWriter, растеризация с настройками Dpi/JPEG).
++            Func<IList<byte[]>, string, EmfPdfSettings, bool> writer =
++                cap.Raster ? (Func<IList<byte[]>, string, EmfPdfSettings, bool>)EmfPdfWriter.Save
++                           : EmfVectorPdfWriter.Save;
++            bool ok = writer(cap.Pages, cap.PdfFile, cap.Settings);
++            Debug.WriteLine($"PrintWrapper: {(cap.Raster ? "растровый" : "векторный")} PDF {(ok ? "записан" : "НЕ записан")}, страниц {cap.Pages.Count} → {cap.PdfFile}");
+             return ok ? cap.Pages.Count : -1;
+         }
+ 
+diff --git a/v7Moxel/Moxel/AddIn/V7Table.cs b/v7Moxel/Moxel/AddIn/V7Table.cs
+index 456c1aa..3e967d2 100644
+--- a/v7Moxel/Moxel/AddIn/V7Table.cs
++++ b/v7Moxel/Moxel/AddIn/V7Table.cs
+@@ -343,6 +343,25 @@ namespace Moxel
+             return MemoryReader.ReadFromMemory(SheetDoc.Pointer);
+         }
+ 
++        /// <summary>
++        /// Заполнить модель Moxel НАПРЯМУЮ из памяти CSheet (без сериализации
++        /// в mxl, без временных файлов). Быстрый путь для Excel/HTML/PDF(Pechkin).
++        /// </summary>
++        public Moxel LoadMoxelFromMemory()
++        {
++            if (SheetDoc == null)
++                throw new InvalidOperationException("Таблица не установлена. Сначала SetTable().");
++            return MoxelMemLoader.LoadFromMemory(this);
++        }
++
++        /// <summary>То же, но с диагностическим отчётом загрузчика.</summary>
++        public Moxel LoadMoxelFromMemory(out string report)
++        {
++            if (SheetDoc == null)
++                throw new InvalidOperationException("Таблица не установлена. Сначала SetTable().");
++            return MoxelMemLoader.LoadFromMemory(this, out report);
++        }
++
+         /// <summary>
+         /// Вызвать метод Таблицы 1С по имени через RCW — 1С сама смаршалит
+         /// вызов в CTableOutputContext::CallAsProc/CallAsFunc.
+-- 
+2.39.5
+

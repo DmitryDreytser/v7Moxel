@@ -1,0 +1,29 @@
+From 26732f5606b40c76d94b6058aed4938da66844f8 Mon Sep 17 00:00:00 2001
+From: "qwen.ai[bot]" <qwenlm-intl@service.alibaba.com>
+Date: Sun, 25 Oct 2026 17:33:00 +0000
+Subject: [PATCH 6/6] =?UTF-8?q?=D0=A0=D0=B5=D1=84=D0=B0=D0=BA=D1=82=D0=BE?=
+ =?UTF-8?q?=D1=80=D0=B8=D0=BD=D0=B3=20=D0=BF.1=20(=D0=BF=D1=80=D0=BE=D0=B4?=
+ =?UTF-8?q?=D0=BE=D0=BB=D0=B6=D0=B5=D0=BD=D0=B8=D0=B5):=20=D0=B2=D1=8B?=
+ =?UTF-8?q?=D0=B2=D0=B5=D1=81=D1=82=D0=B8=20=D0=B8=D0=B7=20=D1=81=D0=B1?=
+ =?UTF-8?q?=D0=BE=D1=80=D0=BA=D0=B8=20=D0=BC=D1=91=D1=80=D1=82=D0=B2=D1=8B?=
+ =?UTF-8?q?=D0=B9=20EmfVectorPdfWriter2.cs?=
+MIME-Version: 1.0
+Content-Type: text/plain; charset=UTF-8
+Content-Transfer-Encoding: 8bit
+
+Файл — копия EmfVectorPdfWriter.cs (660 строк), на него нет ни одной ссылки в
+коде и csproj (SDK-style glob). Переименован в .cs.disabled: не компилируется,
+но остаётся в истории/рабочем дереве для будущего сравнения вариантов векторного
+конвертера.
+---
+ .../{EmfVectorPdfWriter2.cs => EmfVectorPdfWriter2.cs.disabled}   | 0
+ 1 file changed, 0 insertions(+), 0 deletions(-)
+ rename v7Moxel/Moxel/AddIn/{EmfVectorPdfWriter2.cs => EmfVectorPdfWriter2.cs.disabled} (100%)
+
+diff --git a/v7Moxel/Moxel/AddIn/EmfVectorPdfWriter2.cs b/v7Moxel/Moxel/AddIn/EmfVectorPdfWriter2.cs.disabled
+similarity index 100%
+rename from v7Moxel/Moxel/AddIn/EmfVectorPdfWriter2.cs
+rename to v7Moxel/Moxel/AddIn/EmfVectorPdfWriter2.cs.disabled
+-- 
+2.39.5
+
