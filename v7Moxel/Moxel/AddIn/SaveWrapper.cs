@@ -52,6 +52,12 @@ namespace Moxel
         // включается установкой файла-утилиты. Поведение v1 (всегда false) не изменилось.
         public static bool CanSaveExternal => File.Exists(utilPath);
 
+        // РЕФАКТОРИНГ (п.2): держатель RCW таблицы, присоединённой через COM-объект
+        // Converter.Attach. Нужен прямому загрузчику MoxelMemLoader: пока жив RCW —
+        // жива нативная таблица, и чтение по CSheetDoc* безопасно. Обновляется при
+        // каждом Attach; при Detach/ошибке обнуляется Converter'ом.
+        internal static object _lastAttachedComHolder = null;
+
         public static System.Threading.Tasks.Task<int> SaveExternal(string MoxelName, string FileName)
         {
             try
@@ -156,7 +162,9 @@ namespace Moxel
                 }
                 else
                 {
-                    Converter.mxl = ReadFromCSheetDoc(SheetDoc);
+                    // РЕФАКТОРИНГ (п.2): единая точка загрузки модели — быстрый прямой
+                    // канал MoxelMemLoader с fallback на сериализацию (был только он).
+                    Converter.mxl = LoadModel(pSheetDoc, _lastAttachedComHolder);
                     ExcelWriter.PageSettings = SheetDoc.PageSettings;
                 }
             }
@@ -211,8 +219,9 @@ namespace Moxel
 
             try
             {
-                // ФИКС: прямой канал памяти — как у Excel (без сериализации в mxl)
-                Converter.mxl = ReadFromCSheetDoc(new CSheetDoc(pSheetDoc));
+                // РЕФАКТОРИНГ (п.2): единая точка загрузки модели — быстрый прямой
+                // канал MoxelMemLoader с fallback на сериализацию (был только он).
+                Converter.mxl = LoadModel(pSheetDoc, _lastAttachedComHolder);
             }
             catch (Exception ex)
             {
