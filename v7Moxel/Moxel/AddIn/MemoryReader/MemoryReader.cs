@@ -31,34 +31,32 @@ namespace Moxel
 
         public static Moxel ReadFromCSheetDoc(CSheetDoc SheetDoc)
         {
-            // ВНИМАНИЕ: Path.GetTempFileName() создаёт файл на диске — раньше его имя
-            // не сохранялось и временный mxl оставался в %TEMP% после каждой конвертации.
-            string tmpName = Path.GetTempFileName();
+            // Временный mxl-файл создаём в using — раньше он оставался на диске
+            // после каждой конвертации.
+            string tmpFile = Path.GetTempFileName();
             try
             {
-                using (var ms = new FileStream(tmpName, FileMode.Create, FileAccess.ReadWrite))
+                using (var ms = new FileStream(tmpFile, FileMode.Create, FileAccess.ReadWrite))
+                using (CFile f = CFile.FromStream(ms))
                 {
-                    using (CFile f = CFile.FromStream(ms))
+                    try
                     {
-                        try
+                        using (CArchive Arch = new CArchive(f, SheetDoc))
                         {
-                            using (CArchive Arch = new CArchive(f, SheetDoc))
-                            {
-                                SheetDoc.Serialize(Arch);
-                                Arch.Flush();
-                                return new Moxel(ms);
-                            }
+                            SheetDoc.Serialize(Arch);
+                            Arch.Flush();
+                            return new Moxel(ms);
                         }
-                        catch (Exception ex)
-                        {
-                            throw new Exception(ex.Message, ex);
-                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new Exception(ex.Message, ex);
                     }
                 }
             }
             finally
             {
-                try { File.Delete(tmpName); } catch { }
+                try { File.Delete(tmpFile); } catch { /* не критично */ }
             }
         }
 
