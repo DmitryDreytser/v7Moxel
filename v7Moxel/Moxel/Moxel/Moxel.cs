@@ -302,33 +302,12 @@ namespace Moxel
             
         }
 
-        public void Dispose()
-        {
-            Dispose(true);
-        }
+        #region IDisposable
 
-        void Dispose(bool disposing)
-        {
-            if(disposing)
-            {
-                foreach(var obj in Objects)
-                {
-                    obj.pObject?.Dispose();
-                }
+        // Флаг для определения, был ли уже вызов Dispose(true).
+        // Метод вынесен в отдельный partial-класс (см. файл Moxel.Dispose.cs),
+        // чтобы этот файл содержал только логику модели и загрузки формата.
 
-                FormatsList = null;
-                stringTable = null;
-                FontList = null;
-                Columns = null;
-                Rows = null;
-                Objects = null;
-                Unions = null;
-                VerticalSections = null;
-                HorisontalSections = null;
-                HorisontalPageBreaks = null;
-                VerticalPageBreaks = null;
-                AreaNames = null;
-            }
-        }
+        #endregion
     }
 }
