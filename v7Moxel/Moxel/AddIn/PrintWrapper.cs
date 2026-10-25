@@ -195,6 +195,8 @@ namespace Moxel
         {
             public string PdfFile;
             public EmfPdfSettings Settings;
+            /// <summary>true — страницы отдавать EmfPdfWriter (растр), иначе EmfVectorPdfWriter (вектор).</summary>
+            public bool Raster;
             public IntPtr pCDC;        // CDC* из OnBeginPrinting
             public IntPtr hPrinterDC;  // реальный DC принтера
             public IntPtr hEmfDC;      // текущий DC метафайла (страница в записи)
@@ -315,7 +317,7 @@ namespace Moxel
         /// Вооружить перехват. Родная печать (Напечатать(1)/кнопка печати) запишет страницы в PDF
         /// и финализируется в OnEndPrinting. Реальной печати не будет.
         /// </summary>
-        public static bool BeginPdfCapture(string pdfFile, EmfPdfSettings settings = null)
+        public static bool BeginPdfCapture(string pdfFile, EmfPdfSettings settings = null, bool raster = false)
         {
             Resolve();
             _lastError = string.Empty;
@@ -365,7 +367,7 @@ namespace Moxel
                 _cbGetDeviceCaps = GetDeviceCapsHook;
                 _cbDoPrintDialog = DoPrintDialogHook;
 
-                S = new Capture { PdfFile = pdfFile, Settings = settings ?? new EmfPdfSettings() };
+                S = new Capture { PdfFile = pdfFile, Settings = settings ?? new EmfPdfSettings(), Raster = raster };
                 LastPageCount = 0;
 
                 // 1) Процедурные патчи CSheetView (6 байт: PUSH stub; RET)
@@ -452,7 +454,7 @@ namespace Moxel
         /// Высокий уровень: PDF одной таблицы. Сам находит CView документа и запускает родной
         /// цикл печати (CView::OnFilePrint). true — PDF записан; иначе caller должен дать fallback.
         /// </summary>
-        public static bool CaptureToPdf(IntPtr pSheetDoc, string pdfFile, EmfPdfSettings settings = null, V7Table table = null)
+        public static bool CaptureToPdf(IntPtr pSheetDoc, string pdfFile, EmfPdfSettings settings = null, V7Table table = null, bool raster = false)
         {
             Resolve();
             if (pSheetDoc == IntPtr.Zero || string.IsNullOrEmpty(pdfFile))
@@ -464,7 +466,7 @@ namespace Moxel
                 return false;
             }
 
-            if (!BeginPdfCapture(pdfFile, settings))
+            if (!BeginPdfCapture(pdfFile, settings, raster))
                 return false;
 
             try
@@ -841,8 +843,13 @@ namespace Moxel
                 return -1;
             }
 
-            bool ok = EmfVectorPdfWriter.Save(cap.Pages, cap.PdfFile, cap.Settings);
-            Debug.WriteLine($"PrintWrapper: PDF {(ok ? "записан" : "НЕ записан")}, страниц {cap.Pages.Count} → {cap.PdfFile}");
+            // Выбор писателя EMF -> PDF: вектор (EmfVectorPdfWriter, текст выделяется)
+            // или растр (EmfPdfWriter, растеризация с настройками Dpi/JPEG).
+            Func<IList<byte[]>, string, EmfPdfSettings, bool> writer =
+                cap.Raster ? (Func<IList<byte[]>, string, EmfPdfSettings, bool>)EmfPdfWriter.Save
+                           : EmfVectorPdfWriter.Save;
+            bool ok = writer(cap.Pages, cap.PdfFile, cap.Settings);
+            Debug.WriteLine($"PrintWrapper: {(cap.Raster ? "растровый" : "векторный")} PDF {(ok ? "записан" : "НЕ записан")}, страниц {cap.Pages.Count} → {cap.PdfFile}");
             return ok ? cap.Pages.Count : -1;
         }
 

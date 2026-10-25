@@ -31,28 +31,34 @@ namespace Moxel
 
         public static Moxel ReadFromCSheetDoc(CSheetDoc SheetDoc)
         {
-            //var pcStream = new Nito.ProducerConsumerStream.ProducerConsumerStream();
-
-            using (var ms = new FileStream(Path.GetTempFileName(), FileMode.Create, FileAccess.ReadWrite))
+            // ВНИМАНИЕ: Path.GetTempFileName() создаёт файл на диске — раньше его имя
+            // не сохранялось и временный mxl оставался в %TEMP% после каждой конвертации.
+            string tmpName = Path.GetTempFileName();
+            try
             {
-                using (CFile f = CFile.FromStream(ms))
-            {
-                try
+                using (var ms = new FileStream(tmpName, FileMode.Create, FileAccess.ReadWrite))
                 {
-                    using (CArchive Arch = new CArchive(f, SheetDoc))
+                    using (CFile f = CFile.FromStream(ms))
                     {
-                        SheetDoc.Serialize(Arch);
-                        //await Task.Factory.StartNew(() => SheetDoc.Serialize(Arch), TaskCreationOptions.LongRunning);
-                        Arch.Flush();
-                        return new Moxel(ms);
-                        //return await Task.Factory.StartNew(() => new Moxel(ms), TaskCreationOptions.LongRunning);
+                        try
+                        {
+                            using (CArchive Arch = new CArchive(f, SheetDoc))
+                            {
+                                SheetDoc.Serialize(Arch);
+                                Arch.Flush();
+                                return new Moxel(ms);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            throw new Exception(ex.Message, ex);
+                        }
                     }
                 }
-                catch (Exception ex)
-                {
-                    throw new Exception(ex.Message, ex);
-                }
             }
+            finally
+            {
+                try { File.Delete(tmpName); } catch { }
             }
         }
 

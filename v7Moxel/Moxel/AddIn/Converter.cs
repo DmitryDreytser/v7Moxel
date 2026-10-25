@@ -29,6 +29,9 @@ namespace Moxel
         [Alias("Записать")]
         string Save(string filename, SaveFormat format);
 
+        [Alias("ЗаписатьPDF")]
+        string SavePdf(string filename, PdfEngine engine);
+
         [Alias("ПерехватитьЗапись")]
         int WrapSaveAs(int doWrap = 1);
 
@@ -40,6 +43,9 @@ namespace Moxel
 
         [Alias("КоличествоПотоковКонвертации")]
         int MaxDegreeOfParallelism { get; set; }
+
+        [Alias("ФорматPDF")]
+        PdfEngine PdfEngine { get; set; }
     }
 
 
@@ -87,9 +93,19 @@ namespace Moxel
         }
         private static V7Table _attachedTable = null;
 
+        Moxel.PdfEngine _pdfEngine = Moxel.PdfEngine.Auto;
+
         public int WrapSaveAs(int doWrap = 1) => SaveWrapper.Wrap(doWrap == 1);
         
         public void ReadFromMemory(object Table) => Attach(Table);
+
+        /// <summary>Движок PDF по умолчанию (используется в Save(...,PDF) и перехвате диалога).
+        /// Присваивание — потокобезопасно (plain field write).</summary>
+        public Moxel.PdfEngine PdfEngine
+        {
+            get { return _pdfEngine; }
+            set { _pdfEngine = value; }
+        }
 
         public void Attach(object Table)
         {
@@ -99,14 +115,25 @@ namespace Moxel
             try
             {
                 _attachedTable = new V7Table();
-                _attachedTable.SetTable(Table);                   
+                if (!_attachedTable.SetTable(Table))
+                    throw new Exception(string.IsNullOrEmpty(_attachedTable.LastError)
+                        ? "Не удалось получить CSheetDoc из таблицы."
+                        : _attachedTable.LastError);
                 PageSettings = _attachedTable.SheetDoc.PageSettings;
             }
             catch (Exception ex)
             {
-                while (Marshal.ReleaseComObject(Table) > 0) { }
-                Marshal.FinalReleaseComObject(Table);
-                throw ex.InnerException;
+                _attachedTable?.Dispose();
+                _attachedTable = null;
+                try
+                {
+                    while (Marshal.ReleaseComObject(Table) > 0) { }
+                    Marshal.FinalReleaseComObject(Table);
+                }
+                catch { /* объект уже не RCW — игнорируем */ }
+                // Бросаем исходное исключение с сохранением стека (раньше "throw ex.InnerException"
+                // терял стек и давал NullReferenceException при отсутствии inner-ошибки).
+                throw;
             }
         }
 

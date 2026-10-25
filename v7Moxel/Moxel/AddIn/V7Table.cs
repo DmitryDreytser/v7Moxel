@@ -344,6 +344,25 @@ namespace Moxel
         }
 
         /// <summary>
+        /// Заполнить модель Moxel НАПРЯМУЮ из памяти CSheet (без сериализации
+        /// в mxl, без временных файлов). Быстрый путь для Excel/HTML/PDF(Pechkin).
+        /// </summary>
+        public Moxel LoadMoxelFromMemory()
+        {
+            if (SheetDoc == null)
+                throw new InvalidOperationException("Таблица не установлена. Сначала SetTable().");
+            return MoxelMemLoader.LoadFromMemory(this);
+        }
+
+        /// <summary>То же, но с диагностическим отчётом загрузчика.</summary>
+        public Moxel LoadMoxelFromMemory(out string report)
+        {
+            if (SheetDoc == null)
+                throw new InvalidOperationException("Таблица не установлена. Сначала SetTable().");
+            return MoxelMemLoader.LoadFromMemory(this, out report);
+        }
+
+        /// <summary>
         /// Вызвать метод Таблицы 1С по имени через RCW — 1С сама смаршалит
         /// вызов в CTableOutputContext::CallAsProc/CallAsFunc.
         /// Пример: InvokeTableMethod("ПараметрыСтраницы", "A4", "Альбомная", 100, 20, 20, 20, 20);
