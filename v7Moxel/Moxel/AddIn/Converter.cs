@@ -6,8 +6,6 @@ using static Moxel.MemoryReader;
 
 namespace Moxel
 {
-
-
     [ComVisible(false)]
     [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
     [Guid("1EAE378F-C315-4B49-980C-A9A40792E78C")]
@@ -112,7 +110,7 @@ namespace Moxel
         }
         private static V7Table _attachedTable = null;
 
-        Moxel.PdfEngine _pdfEngine = Moxel.PdfEngine.Auto;
+        PdfEngine _pdfEngine = PdfEngine.Auto;
 
         public int WrapSaveAs(int doWrap = 1) => SaveWrapper.Wrap(doWrap == 1);
         
@@ -120,11 +118,13 @@ namespace Moxel
 
         /// <summary>Движок PDF по умолчанию (используется в Save(...,PDF) и перехвате диалога).
         /// Присваивание — потокобезопасно (plain field write).</summary>
-        public Moxel.PdfEngine PdfEngine
+        public PdfEngine Engine
         {
             get { return _pdfEngine; }
             set { _pdfEngine = value; }
         }
+
+        PdfEngine IConverter.PdfEngine { get => throw new NotImplementedException(); set => throw new NotImplementedException(); }
 
         public void Attach(object Table)
         {
@@ -268,6 +268,18 @@ namespace Moxel
             // Освобождаем ресурсы модели (кэши OLE-объектов), а не только ссылку.
             mxl?.Dispose();
             mxl = null;
+        }
+
+        /// <summary>Запись присоединённой таблицы в PDF выбранным движком
+        /// (без влияния на свойство ФорматPDF). Возвращает имя файла.</summary>
+        public string SavePdf(string filename, PdfEngine engine)
+        {
+            if (_attachedTable == null)
+                throw new Exception("Таблица не присоединена. Вызовите Присоединить() / Attach().");
+            if (SaveWrapper.SaveToPDF(_attachedTable.Context.SheetDoc.Pointer, filename, _attachedTable, engine) != 1)
+                throw new Exception($"Не удалось записать PDF ({engine}): {PdfExport.LastError}");
+
+            return filename;
         }
 
 

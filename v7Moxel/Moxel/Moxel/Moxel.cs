@@ -300,6 +300,7 @@ namespace Moxel
                 case SaveFormat.Html:
                     return HtmlWriter.Save(this, filename);
                 case SaveFormat.PDF:
+
                     return PDFWriter.Save(this, filename, null, PaperWidth, PaperHeight).Result;
                 default:
                     throw new Exception("Формат сохранения не поддерживается.");

@@ -470,7 +470,7 @@ namespace OneC77.Headless
 
         void InstallHooks()
         {
-            PatchSlot(VT.Print, Marshal.GetFunctionPointerForDelegate(OnPrintDetour), ref _savedPrint, ref _trampPrint);
+            PatchSlot(VT.Print, Marshal.GetFunctionPointerForDelegate((dPrintDetour)OnPrintDetour), ref _savedPrint, ref _trampPrint);
             _armed = true;
         }
 

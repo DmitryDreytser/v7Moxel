@@ -240,6 +240,7 @@ namespace Moxel
             else
                 Converter.RaiseExtRuntimeError("Ошибка сохранения таблицы в HTML. Не удалось прочитать таблицу");
 
+            Converter.RaiseExtRuntimeError($"Ошибка сохранения таблицы в PDF: {PdfExport.LastError}");
             return 0;
         }
 

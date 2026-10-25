@@ -6,9 +6,9 @@
     },
     "1C": {
       "commandName": "Executable",
-      "executablePath": "E:\\ырфкув\\Portable_1c_relize_27\\1cv7s.exe",
+      "executablePath": "F:\\1C\\Bin\\1cv7s.exe",
       "commandLineArgs": "/m",
-      "workingDirectory": "E:\\ырфкув\\Portable_1c_relize_27\\"
+      "workingDirectory": "F:\\1C\\Bin"
     }
   }
 }
