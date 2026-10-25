@@ -59,14 +59,34 @@ namespace Moxel
     {
         public static void RaiseExtRuntimeError(string ErrorMessage)
         {
+            // ФИКС (зависание после выхода из 1С): DoMessageLine — прямой вызов vtable
+            // IBkendUI. Если ошибка всплывает при закрытии сеанса 1С (bkendUi уже null
+            // или «висячий»), native-вызов по нему подвешивает/роняет процесс вместо
+            // показа сообщения. Ошибка здесь вторична: теряем сообщение, не 1С.
+            try
+            {
                 var bkendUi = GetBkendUi();
+                if (bkendUi == IntPtr.Zero)
+                {
+                    Debug.WriteLine("RaiseExtRuntimeError: IBkendUI недоступен — «" + ErrorMessage + "»");
+                    return;
+                }
 
                 var vfTable = Marshal.ReadIntPtr(bkendUi);
+                if (vfTable == IntPtr.Zero)
+                {
+                    Debug.WriteLine("RaiseExtRuntimeError: vtable IBkendUI == null — «" + ErrorMessage + "»");
+                    return;
+                }
 
                 var DoMessageLine = Marshal.GetDelegateForFunctionPointer<dDoMessageLine>(Marshal.ReadIntPtr(vfTable + 0xC));
 
                 DoMessageLine.Invoke(bkendUi, Marshal.StringToCoTaskMemAnsi(ErrorMessage), MessageMarker.RedErr);
-            
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine("RaiseExtRuntimeError: не удалось показать ошибку в UI 1С: " + ex.Message);
+            }
         }
 
         public static Moxel mxl;

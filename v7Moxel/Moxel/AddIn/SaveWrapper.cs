@@ -265,10 +265,41 @@ namespace Moxel
 
         static IntPtr FileSaveFilterResource;
 
+        /// <summary>Инициализация адресов. Идемпотентна и вызывается ЛЕНИВО при первом
+        /// Wrap(true), а НЕ из статического конструктора класса: раньше static-ctor
+        /// SaveWrapper тянул за собой делегат WrapperSaveAs → GetFunctionPointerForDelegate,
+        /// что приводило к инициализации типа Converter, который в своём static-ctor вызывал
+        /// Wrap(true). Патч CSheetDoc::SaveAs ставился при первой же ссылке на любой тип
+        /// сборки — ещё до подключения аддина к сеансу 1С и без возможности снятия.</summary>
+        private static bool Init()
+        {
+            if (hMoxel != 0)
+                return ProcSaveAs != IntPtr.Zero;
+
+            IntPtr hMod = WinApi.GetModuleHandle("Moxel.dll");
+            if (hMod == IntPtr.Zero)
+            {
+                Debug.WriteLine("SaveWrapper.Wrap: Moxel.dll не загружен");
+                return false;
+            }
+            hMoxel = hMod.ToInt32();
+            ProcSaveAs = WinApi.GetProcAddress(hMod, "?SaveAs@CSheetDoc@@QAEHPBDW4CSheetSaveAsType@@@Z");
+            if (ProcSaveAs == IntPtr.Zero)
+            {
+                Debug.WriteLine("SaveWrapper.Wrap: экспорт CSheetDoc::SaveAs не найден");
+                hMoxel = 0;
+                return false;
+            }
+            Marshal.Copy(ProcSaveAs, OriginalBytesSaveAs, 0, 6);
+            return true;
+        }
+
         public static int Wrap(bool DoWrap)
         {
             // ФИКС: охрана адресов — раньше Copy из нулевого указателя = AV процесса 1С
-            if (hMoxel == 0)
+            if (DoWrap && !Init())
+                return 0;
+            if (hMoxel == 0 && DoWrap)
             {
                 IntPtr hMod = WinApi.GetModuleHandle("Moxel.dll");
                 if (hMod == IntPtr.Zero)
